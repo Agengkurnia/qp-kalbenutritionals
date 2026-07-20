@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en" class="light-style layout-navbar-fixed layout-menu-fixed" dir="ltr" data-theme="theme-default"
+    data-assets-path="assets/" data-template="vertical-menu-template">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - QP Kalbe Nutritionals</title>
+</head>
+
+<body>
+    <div id="app-content">
+        <h4 class="fw-bold py-3 mb-4">
+            <span class="text-muted fw-light">Dashboard |</span> QP Kalbe Nutritionals
+        </h4>
+
+        <!-- Role Display Card -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h5 class="card-title mb-1">Welcome to QP Kalbe Nutritionals</h5>
+                                <p class="text-muted mb-0">
+                                    <i class="fas fa-user-tag me-1"></i>
+                                    Current Role: <strong id="currentRoleDisplay">Loading...</strong>
+                                </p>
+                            </div>
+                            <a href="ChooseRole.html" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-exchange-alt me-1"></i>Change Role
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Requirements Card -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">System Requirements</h5>
+                        <p>
+                            In order to use this application comfortably, you can do the following suggestions:
+                        </p>
+
+                        <ul>
+                            <li>Please use the monitor with the minimal resolution 1280 x 768 (You can set it via
+                                Control Panel
+                                &gt; Display &gt; Settings).</li>
+                            <li>Please use <strong>Firefox Mozilla, Google Chrome latest version</strong> browsers. Some
+                                features will run better at <strong>Firefox Mozilla, Google Chrome latest
+                                    version</strong>.
+                            </li>
+                            <li>Please make sure that javascript on your browser is still active. By default, the
+                                Javascript on
+                                browsers is active.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/layout.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            new Layout().init();
+        });
+
+        // Display current role
+        document.addEventListener('layoutReady', () => {
+            const currentRole = localStorage.getItem('currentRole') || 'Administrator';
+            document.getElementById('currentRoleDisplay').textContent = currentRole;
+        });
+
+        // Listen for role changes
+        window.addEventListener('roleChanged', (e) => {
+            document.getElementById('currentRoleDisplay').textContent = e.detail.role;
+        });
+    </script>
+</body>
+
+</html>

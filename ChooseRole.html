@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html class="loading" lang="en" data-textdirection="ltr">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=0,minimal-ui">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Choose Role - IDC System</title>
+    <link rel="shortcut icon" href="favicon.ico" />
+
+    <!--BEGIN::Fonts-->
+    <link href="lib/fonts/googlefont.css" rel="stylesheet">
+    <!--END::Fonts-->
+
+    <!-- BEGIN: Vendor CSS-->
+    <link rel="stylesheet" type="text/css" href="lib/vuexy/vendors/css/vendors.min.css">
+    <link rel="stylesheet" href="lib/vuexy/vendor/libs/select2/select2.css" />
+    <!-- END: Vendor CSS-->
+
+    <!-- BEGIN: Theme CSS-->
+    <link rel="stylesheet" type="text/css" href="lib/vuexy/css/bootstrap.css">
+    <link rel="stylesheet" type="text/css" href="lib/vuexy/css/bootstrap-extended.css">
+    <link rel="stylesheet" type="text/css" href="lib/vuexy/css/colors.css">
+    <link rel="stylesheet" type="text/css" href="lib/vuexy/css/components.css">
+    <link rel="stylesheet" type="text/css" href="lib/vuexy/css/themes/dark-layout.css">
+    <link rel="stylesheet" type="text/css" href="lib/vuexy/css/themes/bordered-layout.css">
+    <link rel="stylesheet" type="text/css" href="lib/vuexy/css/themes/semi-dark-layout.css">
+
+    <!-- BEGIN: Page CSS-->
+    <link rel="stylesheet" type="text/css" href="lib/vuexy/css/core/menu/menu-types/vertical-menu.css">
+    <link rel="stylesheet" type="text/css" href="lib/vuexy/css/plugins/forms/form-validation.css">
+    <link rel="stylesheet" type="text/css" href="lib/vuexy/css/pages/authentication.css">
+    <!-- END: Page CSS-->
+
+    <!-- BEGIN: Custom CSS-->
+    <link rel="stylesheet" type="text/css" href="lib/vuexy/css/style.css">
+    <!-- END: Custom CSS-->
+</head>
+
+<!-- BEGIN: Body-->
+
+<body class="vertical-layout vertical-menu-modern blank-page navbar-floating footer-static" data-open="click"
+    data-menu="vertical-menu-modern" data-col="blank-page">
+    <!-- BEGIN: Content-->
+    <div class="app-content content">
+        <div class="content-overlay"></div>
+        <div class="header-navbar-shadow"></div>
+        <div class="content-wrapper">
+            <div class="content-header row">
+            </div>
+            <div class="content-body">
+                <div class="auth-wrapper auth-basic px-2 d-flex flex-column">
+                    <div class="auth-inner my-2">
+                        <div class="card mb-0">
+                            <div class="card-body">
+                                <a href="#" class="brand-logo">
+                                    <h2 class="brand-text text-primary ms-1">Choose Role</h2>
+                                </a>
+
+                                <form id="roleForm" onsubmit="return submitRole(event);">
+                                    <div class="mb-1">
+                                        <select class="form-select select2" id="roleSelect" name="role">
+                                            <option value="">Select Role...</option>
+                                            <option value="Administrator">Administrator</option>
+                                            <option value="Packaging Development">Packaging Development</option>
+                                            <option value="Regulatory Affair">Regulatory Affair</option>
+                                            <option value="Business Development">Business Development</option>
+                                            <option value="Product Development">Product Development</option>
+                                        </select>
+                                    </div>
+                                    <button class="btn btn-success w-100" tabindex="2" type="submit">Submit</button>
+                                </form>
+                                <div class="px-4 mt-2">
+                                    ©2026
+                                    , made with ❤️ by <a href="#" target="_blank" class="fw-semibold">IT & Squad IDC</a>
+                                </div>
+                                <div class="mt-1 d-flex justify-content-evenly footer bg-footer-theme">
+                                    <a href="#" class="footer-link" target="_blank">IDC System</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- END: Content-->
+
+    <!-- BEGIN: Vendor JS-->
+    <script src="lib/vuexy/vendor/js/vendors.min.js"></script>
+    <script src="lib/vuexy/vendor/libs/jquery/jquery.js"></script>
+    <!-- BEGIN Vendor JS-->
+
+    <!-- BEGIN: Page Vendor JS-->
+    <script src="lib/vuexy/vendor/js/forms/validation/jquery.validate.min.js"></script>
+    <script src="lib/vuexy/vendor/js/extensions/sweetalert2.all.min.js"></script>
+    <script src="lib/vuexy/vendor/libs/select2/select2.js"></script>
+    <!-- END: Page Vendor JS-->
+
+    <!-- BEGIN: Theme JS-->
+    <script src="lib/vuexy/js/core/app-menu.js"></script>
+    <script src="lib/vuexy/js/core/app.js"></script>
+    <!-- END: Theme JS-->
+
+    <script>
+        $(window).on('load', function () {
+            if (feather) {
+                feather.replace({
+                    width: 14,
+                    height: 14
+                });
+            }
+        });
+
+        // Initialize Select2
+        $(document).ready(function () {
+            $('.select2').select2();
+            $('.select2').css('width', "100%");
+
+            // Pre-select current role if exists
+            const currentRole = localStorage.getItem('currentRole');
+            if (currentRole) {
+                $('#roleSelect').val(currentRole).trigger('change');
+            }
+        });
+
+        function submitRole(event) {
+            event.preventDefault();
+
+            const selectedRole = $('#roleSelect').val();
+
+            if (!selectedRole) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Oops...',
+                    text: 'Please select a role!',
+                });
+                return false;
+            }
+
+            // Save to localStorage
+            localStorage.setItem('currentRole', selectedRole);
+
+            // Dispatch event for role change
+            window.dispatchEvent(new CustomEvent('roleChanged', { detail: { role: selectedRole } }));
+
+            // Show success message
+            Swal.fire({
+                icon: 'success',
+                title: 'Success!',
+                text: 'Role has been changed to ' + selectedRole,
+                timer: 1500,
+                showConfirmButton: false
+            }).then(() => {
+                // Always redirect to index.html
+                window.location.href = 'index.html';
+            });
+
+            return false;
+        }
+    </script>
+</body>
+<!-- END: Body-->
+
+</html>
