@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en" class="light-style layout-navbar-fixed layout-menu-fixed" dir="ltr" data-theme="theme-default"
+    data-assets-path="../assets/" data-template="vertical-menu-template">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detail Mapping Subdist - Development Fund</title>
+    <style>
+        .df-divider {
+            border: 0;
+            border-top: 1px solid #e7e7e8;
+            margin: 1.25rem 0;
+        }
+        .df-section-label {
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: .05em;
+            text-transform: uppercase;
+            color: #a1acb8;
+            margin-bottom: .85rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app-content">
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+            <div>
+                <h4 class="fw-bold mb-1">
+                    <span class="text-muted fw-light">Master / Mapping Subdist /</span>
+                    <span id="pageTitle">Detail</span>
+                </h4>
+                <p class="text-muted mb-0 small" id="pageSubtitle">Data subdist / KMMD</p>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="mapping-subdist.html" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i> Kembali
+                </a>
+                <button type="submit" form="formSubdist" id="btnSave" class="btn btn-primary">
+                    <i class="fas fa-save me-1"></i> Simpan
+                </button>
+            </div>
+        </div>
+
+        <form id="formSubdist">
+            <input type="hidden" id="editId">
+
+            <div class="card mb-4">
+                <div class="card-body">
+
+                    <!-- Identitas -->
+                    <div class="df-section-label">Identitas</div>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label" for="fldKodeKmmd">Kode KMMD (Bosnet) <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <input type="text" id="fldKodeKmmd" class="form-control" required readonly
+                                    placeholder="Pilih dari Bosnet">
+                                <button type="button" class="btn btn-outline-primary" id="btnLovKmmd" title="Pilih dari Bosnet">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
+                            <small class="text-muted">Data master dari aplikasi Bosnet</small>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label" for="fldNamaKmmd">Nama KMMD <span class="text-danger">*</span></label>
+                            <input type="text" id="fldNamaKmmd" class="form-control" required readonly placeholder="Terisi otomatis dari Bosnet">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="fldTitik">Titik <span class="text-danger">*</span></label>
+                            <input type="text" id="fldTitik" class="form-control" required readonly placeholder="Terisi otomatis">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="fldTipeKmmd">Tipe KMMD <span class="text-danger">*</span></label>
+                            <select id="fldTipeKmmd" class="form-select" required disabled>
+                                <option value="KMMD-B">KMMD-B</option>
+                                <option value="KMMD-C">KMMD-C</option>
+                                <option value="KMMD-BVG">KMMD-BVG</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="fldRegion">Region <span class="text-danger">*</span></label>
+                            <input type="text" id="fldRegion" class="form-control" required readonly placeholder="Terisi otomatis">
+                        </div>
+                    </div>
+
+                    <hr class="df-divider">
+
+                    <!-- Group dulu → baru Parent toggle -->
+                    <div class="df-section-label">Group</div>
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label" for="fldGroupType">Tipe <span class="text-danger">*</span></label>
+                            <select id="fldGroupType" class="form-select" required>
+                                <option value="">— Pilih —</option>
+                                <option value="Group">Group</option>
+                                <option value="Non Group">Non Group</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-8" id="wrapParentToggle" style="display: none;">
+                            <label class="form-label d-block">Peran</label>
+                            <div class="d-flex align-items-center justify-content-between border rounded px-3 py-2">
+                                <div>
+                                    <div class="fw-semibold" id="parentToggleLabel">Parent</div>
+                                    <small class="text-muted" id="parentToggleHint">ON = Parent, OFF = Child</small>
+                                </div>
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="fldParentToggle"
+                                        style="width: 2.75rem; height: 1.4rem;">
+                                </div>
+                            </div>
+                            <input type="hidden" id="fldParent" value="YA">
+                        </div>
+
+                        <div class="col-md-8" id="wrapNamaGroup" style="display: none;">
+                            <label class="form-label" for="fldNamaGroup">Nama Group <span class="text-danger">*</span></label>
+                            <input type="text" id="fldNamaGroup" class="form-control" list="listNamaGroup"
+                                placeholder="contoh: CV. Kompas Sejahtera Group">
+                            <datalist id="listNamaGroup"></datalist>
+                            <small class="text-muted" id="hintNamaGroup"></small>
+                        </div>
+                    </div>
+
+                    <hr class="df-divider">
+
+                    <!-- Cabang & tambahan -->
+                    <div class="df-section-label">Cabang & tambahan</div>
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label" for="fldKodeBranch">Kode Branch EPM</label>
+                            <input type="text" id="fldKodeBranch" class="form-control" readonly placeholder="Terisi dari Bosnet">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="fldBranchEpm">Branch EPM</label>
+                            <input type="text" id="fldBranchEpm" class="form-control" readonly placeholder="Terisi dari Bosnet">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="fldAlamat">Alamat</label>
+                            <textarea id="fldAlamat" class="form-control" rows="3" placeholder="Alamat lengkap"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="fldActive" checked>
+                                <label class="form-check-label" for="fldActive">Aktif</label>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Child mapping — island terpisah -->
+            <div class="card mb-4" id="accordionChildMapping" style="display: none;">
+                <div class="card-body">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                        <div>
+                            <h5 class="mb-1">Mapping Child</h5>
+                            <small class="text-muted" id="childHint">Daftar child di group ini.</small>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-label-primary" id="childCountBadge">0</span>
+                            <button type="button" id="btnAddChild" class="btn btn-primary btn-sm">
+                                <i class="fas fa-plus me-1"></i> Add
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover" id="tblChild" style="width:100%">
+                            <thead>
+                                <tr>
+                                    <th>Kode (Bosnet)</th>
+                                    <th>Kode (EPM)</th>
+                                    <th>Nama KMMD</th>
+                                    <th>Titik</th>
+                                    <th>Tipe</th>
+                                    <th>Branch</th>
+                                    <th>Status</th>
+                                    <th class="text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tblChildBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal pilih orphan child (multi-select) -->
+            <div class="modal fade" id="modalPickChild" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Pilih Child Subdist</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="text-muted small mb-3">
+                                Centang satu atau lebih subdist kandidat (standalone / child group lain)
+                                untuk dipetakan sebagai child.
+                            </p>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover" id="tblOrphan" style="width:100%">
+                                    <thead>
+                                        <tr>
+                                            <th class="text-center" style="width:40px;">
+                                                <input type="checkbox" class="form-check-input" id="chkOrphanAll" title="Pilih semua">
+                                            </th>
+                                            <th>Kode (Bosnet)</th>
+                                            <th>Nama KMMD</th>
+                                            <th>Titik</th>
+                                            <th>Region</th>
+                                            <th>Tipe</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tblOrphanBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="modal-footer justify-content-between">
+                            <small class="text-muted" id="orphanSelectedLabel">0 dipilih</small>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Tutup</button>
+                                <button type="button" class="btn btn-primary" id="btnConfirmPickChildren">
+                                    <i class="fas fa-plus me-1"></i> Tambah yang dipilih
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Modal LOV Kode KMMD Bosnet (single select) -->
+            <div class="modal fade" id="modalLovBosnet" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Pilih Kode KMMD (Bosnet)</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="text-muted small mb-3">Pilih satu subdist dari master Bosnet (single select).</p>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover" id="tblBosnetLov" style="width:100%">
+                                    <thead>
+                                        <tr>
+                                            <th>Kode (Bosnet)</th>
+                                            <th>Nama KMMD</th>
+                                            <th>Titik</th>
+                                            <th>Region</th>
+                                            <th>Tipe</th>
+                                            <th class="text-center">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tblBosnetLovBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Tutup</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <script src="../js/layout.js"></script>
+    <script src="../js/masters/MappingSubdist/seed-data.js"></script>
+    <script src="../js/masters/MappingSubdist/MappingSubdistStore.js"></script>
+    <script src="../js/masters/MappingSubdist/MappingSubdistForm.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            new Layout().init();
+        });
+        document.addEventListener('layoutReady', () => {
+            MappingSubdistForm.init();
+        });
+    </script>
+</body>
+
+</html>

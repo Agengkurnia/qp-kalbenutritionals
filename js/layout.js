@@ -108,7 +108,7 @@ class Layout {
         const sidebar = `
             <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
                 <div class="app-brand demo">
-                    <span class="app-brand-text demo menu-text fw-bolder ms-2">QP Kalbe Nutritionals</span>
+                    <span class="app-brand-text demo menu-text fw-bolder ms-2">Development Fund</span>
                 </div>
                 <div class="menu-divider mt-0"></div>
                 <ul class="menu-inner py-1">
@@ -118,6 +118,50 @@ class Layout {
                             <i class="menu-icon tf-icons fas fa-home"></i>
                             <div data-i18n="Dashboard">Dashboard</div>
                         </a>
+                    </li>
+
+                    <li class="menu-header small text-uppercase">
+                        <span class="menu-header-text">Master</span>
+                    </li>
+                    <li class="menu-item">
+                        <a href="javascript:void(0);" class="menu-link menu-toggle">
+                            <i class="menu-icon tf-icons fas fa-database"></i>
+                            <div data-i18n="Master">Master</div>
+                        </a>
+                        <ul class="menu-sub">
+                            <li class="menu-item">
+                                <a href="${this.basePath}masters/mapping-subdist.html" class="menu-link">
+                                    <div data-i18n="Mapping Subdist">Mapping Subdist</div>
+                                </a>
+                            </li>
+                            <li class="menu-item">
+                                <a href="${this.basePath}masters/vendor.html" class="menu-link">
+                                    <div data-i18n="Vendor">Vendor</div>
+                                </a>
+                            </li>
+                            <li class="menu-item">
+                                <a href="${this.basePath}masters/activity-type.html" class="menu-link">
+                                    <div data-i18n="Jenis Activity">Jenis Activity</div>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+
+                    <li class="menu-header small text-uppercase">
+                        <span class="menu-header-text">Transaction</span>
+                    </li>
+                    <li class="menu-item">
+                        <a href="javascript:void(0);" class="menu-link menu-toggle">
+                            <i class="menu-icon tf-icons fas fa-file-invoice"></i>
+                            <div data-i18n="Transaction">Transaction</div>
+                        </a>
+                        <ul class="menu-sub">
+                            <li class="menu-item">
+                                <a href="${this.basePath}transactions/memo-qp.html" class="menu-link">
+                                    <div data-i18n="Memo QP">Memo QP</div>
+                                </a>
+                            </li>
+                        </ul>
                     </li>
 
                 </ul>

@@ -1,12 +1,12 @@
-// Role Management for RM Selection System
+// Role Management — Development Fund (MAVEN)
 const RoleManager = {
-    // Available roles
+    // Available roles (MAVEN: master + QP)
     roles: [
         'Administrator',
-        'Packaging Development',
-        'Regulatory Affair',
-        'Business Development',
-        'Product Development'
+        'CSD / RAS',
+        'CCD',
+        'FA (View)',
+        'ABM (View)'
     ],
 
     // Get current role from localStorage
