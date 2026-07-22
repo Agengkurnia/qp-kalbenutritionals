@@ -9,6 +9,8 @@ const MappingSubdistForm = {
     childTable: null,
     orphanTable: null,
     bosnetTable: null,
+    activityTable: null,
+    activityLovTable: null,
 
     init: async function () {
         await MappingSubdistStore.ensureSwal();
@@ -27,10 +29,7 @@ const MappingSubdistForm = {
     },
 
     ensureDataTables: async function () {
-        if (window.jQuery && jQuery.fn && jQuery.fn.DataTable) return;
-        const base = MappingSubdistStore.getBasePath();
-        await MappingSubdistStore.loadScript(base + 'lib/datatables/jquery.dataTables.min.js');
-        await MappingSubdistStore.loadScript(base + 'lib/vuexy/vendor/js/tables/datatable/dataTables.bootstrap5.min.js');
+        await DfDataTable.ensureAssets();
     },
 
     fillDatalists: function () {
@@ -55,15 +54,20 @@ const MappingSubdistForm = {
         document.getElementById('fldParentToggle').addEventListener('change', (e) => {
             this.setParentChoice(e.target.checked ? 'YA' : 'TIDAK');
             this.syncParentUI();
-            this.refreshChildSection();
+            this.refreshMappingSections();
         });
 
         document.getElementById('fldGroupType').addEventListener('change', () => {
             this.syncGroupUI();
-            this.refreshChildSection();
+            this.refreshMappingSections();
         });
 
         document.getElementById('btnAddChild').addEventListener('click', () => this.openPickChildModal());
+
+        const btnAddActivity = document.getElementById('btnAddActivity');
+        if (btnAddActivity) {
+            btnAddActivity.addEventListener('click', () => this.openPickActivityModal());
+        }
 
         const btnLov = document.getElementById('btnLovKmmd');
         if (btnLov) {
@@ -77,6 +81,15 @@ const MappingSubdistForm = {
         const chkAll = document.getElementById('chkOrphanAll');
         if (chkAll) {
             chkAll.addEventListener('change', (e) => this.toggleSelectAllOrphans(e.target.checked));
+        }
+
+        const btnConfirmAct = document.getElementById('btnConfirmPickActivities');
+        if (btnConfirmAct) {
+            btnConfirmAct.addEventListener('click', () => this.confirmPickActivities());
+        }
+        const chkActAll = document.getElementById('chkActivityAll');
+        if (chkActAll) {
+            chkActAll.addEventListener('change', (e) => this.toggleSelectAllActivities(e.target.checked));
         }
     },
 
@@ -111,16 +124,8 @@ const MappingSubdistForm = {
     },
 
     destroyBosnetTable: function () {
-        if (this.bosnetTable) {
-            try { this.bosnetTable.destroy(); } catch (e) { /* ignore */ }
-            this.bosnetTable = null;
-        }
-        const $ = window.jQuery;
-        if ($ && $.fn.DataTable && $.fn.DataTable.isDataTable('#tblBosnetLov')) {
-            try { $('#tblBosnetLov').DataTable().clear().destroy(); } catch (e) { /* ignore */ }
-        }
-        const tbody = document.getElementById('tblBosnetLovBody');
-        if (tbody) tbody.innerHTML = '';
+        DfDataTable.destroy('#tblBosnetLov');
+        this.bosnetTable = null;
     },
 
     renderBosnetLov: function () {
@@ -129,8 +134,6 @@ const MappingSubdistForm = {
         const used = new Set(existing.map(d => d.kodeKmmd));
         const list = this.getBosnetMaster().filter(d => !used.has(d.kodeKmmd));
         const $ = window.jQuery;
-
-        this.destroyBosnetTable();
 
         const rows = list.map(c => [
             `<code>${esc(c.kodeKmmd)}</code>`,
@@ -143,56 +146,31 @@ const MappingSubdistForm = {
              </div>`
         ]);
 
-        if ($ && $.fn.DataTable) {
-            this.bosnetTable = $('#tblBosnetLov').DataTable({
-                data: rows,
-                columns: [
-                    { orderable: true },
-                    { orderable: true },
-                    { orderable: true },
-                    { orderable: true },
-                    { orderable: true },
-                    { orderable: false, searchable: false, className: 'text-center' }
-                ],
-                pageLength: 10,
-                ordering: true,
-                autoWidth: false,
-                language: {
-                    emptyTable: 'Semua Kode KMMD Bosnet sudah terdaftar',
-                    search: 'Cari:',
-                    lengthMenu: 'Tampil _MENU_',
-                    info: '_START_–_END_ dari _TOTAL_',
-                    infoEmpty: '0 data',
-                    zeroRecords: 'Tidak ditemukan',
-                    paginate: { previous: 'Prev', next: 'Next' }
-                }
-            });
+        this.bosnetTable = DfDataTable.init('#tblBosnetLov', {
+            data: rows,
+            columns: [
+                { orderable: true },
+                { orderable: true },
+                { orderable: true },
+                { orderable: true },
+                { orderable: true },
+                { orderable: false, searchable: false, className: 'text-center' }
+            ],
+            language: Object.assign({}, DfDataTable.language, {
+                emptyTable: 'Semua Kode KMMD Bosnet sudah terdaftar'
+            })
+        });
 
+        if ($ && this.bosnetTable) {
             const self = this;
             $('#tblBosnetLov').off('click', '.btn-pick-bosnet').on('click', '.btn-pick-bosnet', function () {
                 self.applyBosnetSelection(this.getAttribute('data-kode'));
             });
-            return;
+            const modalEl = document.getElementById('modalLovBosnet');
+            modalEl.addEventListener('shown.bs.modal', () => {
+                self.scheduleDtAdjust(self.bosnetTable);
+            }, { once: true });
         }
-
-        const tbody = document.getElementById('tblBosnetLovBody');
-        if (!list.length) {
-            tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-3">Semua Kode KMMD Bosnet sudah terdaftar</td></tr>`;
-            return;
-        }
-        tbody.innerHTML = list.map(c => `<tr>
-            <td><code>${esc(c.kodeKmmd)}</code></td>
-            <td>${esc(c.namaKmmd)}</td>
-            <td>${esc(c.titik)}</td>
-            <td>${esc(c.region)}</td>
-            <td>${esc(c.tipeKmmd)}</td>
-            <td class="text-center">
-                <button type="button" class="btn btn-sm btn-primary" data-pick-bosnet="${esc(c.kodeKmmd)}">Pilih</button>
-            </td>
-        </tr>`).join('');
-        tbody.querySelectorAll('[data-pick-bosnet]').forEach(btn => {
-            btn.addEventListener('click', () => this.applyBosnetSelection(btn.getAttribute('data-pick-bosnet')));
-        });
     },
 
     applyBosnetSelection: function (kode) {
@@ -270,7 +248,7 @@ const MappingSubdistForm = {
         }
 
         this.applyBosnetLockUI();
-        this.refreshChildSection();
+        this.refreshMappingSections();
     },
 
     syncParentUI: function () {
@@ -349,14 +327,21 @@ const MappingSubdistForm = {
         if (btnSave) btnSave.style.display = 'none';
         const btnAdd = document.getElementById('btnAddChild');
         if (btnAdd) btnAdd.style.display = 'none';
+        const btnAddAct = document.getElementById('btnAddActivity');
+        if (btnAddAct) btnAddAct.style.display = 'none';
     },
 
-    /** Parent YA (Group atau Non Group) bisa mapping child */
+    /** Parent YA (Group atau Non Group) bisa mapping child & activity */
     isParentMode: function () {
         const type = document.getElementById('fldGroupType').value;
         if (!type) return false;
         if (type === 'Non Group') return true;
         return document.getElementById('fldParent').value === 'YA';
+    },
+
+    refreshMappingSections: function () {
+        this.refreshChildSection();
+        this.refreshActivitySection();
     },
 
     refreshChildSection: function () {
@@ -375,8 +360,9 @@ const MappingSubdistForm = {
         if (!this.itemId) {
             document.getElementById('childCountBadge').textContent = '0';
             document.getElementById('childHint').textContent =
-                'Klik Add untuk memilih child (parent akan disimpan otomatis bila perlu).';
+                'Klik Add untuk memilih child dari Bosnet (parent disimpan otomatis bila perlu).';
             this.renderChildren([]);
+            this.scheduleDtAdjust(this.childTable);
             return;
         }
 
@@ -384,17 +370,61 @@ const MappingSubdistForm = {
             ? (parentSnapshot.namaKmmd || '—')
             : (parentSnapshot.namaGroup || '—');
         document.getElementById('childHint').textContent =
-            `Child di bawah "${label}". Klik Add untuk menambah.`;
+            `Child di bawah "${label}". Sumber data: Bosnet API.`;
 
         const children = MappingSubdistStore.getChildren(parentSnapshot);
         document.getElementById('childCountBadge').textContent = String(children.length);
         this.renderChildren(children);
+        this.scheduleDtAdjust(this.childTable);
+    },
+
+    refreshActivitySection: function () {
+        const card = document.getElementById('accordionActivityMapping');
+        if (!card) return;
+        const show = this.isParentMode();
+        card.style.display = show ? '' : 'none';
+        if (!show) {
+            this.destroyActivityTable();
+            return;
+        }
+
+        const parentSnapshot = this.getFormSnapshot();
+        const btnAdd = document.getElementById('btnAddActivity');
+        if (btnAdd) btnAdd.disabled = this.readOnly;
+
+        if (!this.itemId) {
+            document.getElementById('activityCountBadge').textContent = '0';
+            document.getElementById('activityHint').textContent =
+                'Klik Add untuk memilih activity dari Master Data (parent disimpan otomatis bila perlu).';
+            this.renderActivities([]);
+            this.scheduleDtAdjust(this.activityTable);
+            return;
+        }
+
+        const label = parentSnapshot.groupType === 'Non Group'
+            ? (parentSnapshot.namaKmmd || '—')
+            : (parentSnapshot.namaGroup || '—');
+        document.getElementById('activityHint').textContent =
+            `Activity di bawah "${label}". Sumber data: Master Data API.`;
+
+        const activities = MappingSubdistStore.getMappedActivities(parentSnapshot);
+        document.getElementById('activityCountBadge').textContent = String(activities.length);
+        this.renderActivities(activities);
+        this.scheduleDtAdjust(this.activityTable);
+    },
+
+    scheduleDtAdjust: function (api) {
+        if (!api) return;
+        setTimeout(() => DfDataTable.adjust(api), 50);
+        setTimeout(() => DfDataTable.adjust(api), 250);
     },
 
     getFormSnapshot: function () {
         const kode = document.getElementById('fldKodeKmmd').value.trim();
+        const id = document.getElementById('editId').value || kode;
+        const existing = id ? MappingSubdistStore.getById(id) : null;
         return {
-            id: document.getElementById('editId').value || kode,
+            id,
             parent: document.getElementById('fldParent').value,
             kodeKmmd: kode,
             namaKmmd: document.getElementById('fldNamaKmmd').value.trim(),
@@ -409,31 +439,20 @@ const MappingSubdistForm = {
             region: document.getElementById('fldRegion').value.trim(),
             tipeKmmd: document.getElementById('fldTipeKmmd').value,
             alamat: document.getElementById('fldAlamat').value.trim(),
-            active: document.getElementById('fldActive').checked
+            active: document.getElementById('fldActive').checked,
+            activities: existing && Array.isArray(existing.activities) ? existing.activities : []
         };
     },
 
     destroyChildTable: function () {
-        if (this.childTable) {
-            try { this.childTable.destroy(); } catch (e) { /* ignore */ }
-            this.childTable = null;
-        }
-        const $ = window.jQuery;
-        if ($ && $.fn.DataTable && $.fn.DataTable.isDataTable('#tblChild')) {
-            try { $('#tblChild').DataTable().clear().destroy(); } catch (e) { /* ignore */ }
-        }
+        DfDataTable.destroy('#tblChild');
+        this.childTable = null;
     },
 
     renderChildren: function (children) {
         const esc = MappingSubdistStore.esc;
         const list = Array.isArray(children) ? children : [];
         const $ = window.jQuery;
-
-        this.destroyChildTable();
-
-        // clear tbody before re-init
-        const tbody = document.getElementById('tblChildBody');
-        if (tbody) tbody.innerHTML = '';
 
         const rows = list.map(c => {
             const unlinkBtn = this.readOnly
@@ -454,73 +473,31 @@ const MappingSubdistForm = {
             ];
         });
 
-        if ($ && $.fn.DataTable) {
-            this.childTable = $('#tblChild').DataTable({
-                data: rows,
-                columns: [
-                    { orderable: true },
-                    { orderable: true },
-                    { orderable: true },
-                    { orderable: true },
-                    { orderable: true },
-                    { orderable: true },
-                    { orderable: true },
-                    { orderable: false, searchable: false, className: 'text-center' }
-                ],
-                pageLength: 10,
-                lengthMenu: [5, 10, 25, 50],
-                ordering: true,
-                autoWidth: false,
-                language: {
-                    emptyTable: 'Belum ada child',
-                    search: 'Cari:',
-                    lengthMenu: 'Tampil _MENU_',
-                    info: '_START_–_END_ dari _TOTAL_',
-                    infoEmpty: '0 data',
-                    zeroRecords: 'Tidak ditemukan',
-                    paginate: { previous: 'Prev', next: 'Next' }
-                }
-            });
+        this.childTable = DfDataTable.init('#tblChild', {
+            data: rows,
+            columns: [
+                { orderable: true },
+                { orderable: true },
+                { orderable: true },
+                { orderable: true },
+                { orderable: true },
+                { orderable: true },
+                { orderable: true },
+                { orderable: false, searchable: false, className: 'text-center' }
+            ],
+            language: Object.assign({}, DfDataTable.language, {
+                emptyTable: 'Belum ada child'
+            })
+        });
 
+        if ($ && this.childTable) {
             const self = this;
             $('#tblChild').off('click', '.btn-unlink-child').on('click', '.btn-unlink-child', function () {
                 MappingSubdistStore.unlinkChild(this.getAttribute('data-id'));
                 MappingSubdistStore.toast('success', 'Child dilepas');
                 self.refreshChildSection();
             });
-            return;
         }
-
-        // fallback
-        if (!list.length) {
-            tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-3">Belum ada child</td></tr>`;
-            return;
-        }
-        tbody.innerHTML = list.map(c => {
-            const unlinkBtn = this.readOnly
-                ? ''
-                : `<button type="button" class="btn btn-sm btn-outline-danger" data-unlink="${c.id}">Lepas</button>`;
-            const statusBadge = c.active === false
-                ? '<span class="badge bg-label-danger">Non Active</span>'
-                : '<span class="badge bg-label-success">Active</span>';
-            return `<tr>
-                <td><code>${esc(c.kodeKmmd)}</code></td>
-                <td><code>${esc(c.kodeBranch)}</code></td>
-                <td>${esc(c.namaKmmd)}</td>
-                <td>${esc(c.titik)}</td>
-                <td>${esc(c.tipeKmmd)}</td>
-                <td>${esc(c.branchEpm)}</td>
-                <td>${statusBadge}</td>
-                <td class="text-center text-nowrap">${unlinkBtn}</td>
-            </tr>`;
-        }).join('');
-        tbody.querySelectorAll('[data-unlink]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                MappingSubdistStore.unlinkChild(btn.getAttribute('data-unlink'));
-                MappingSubdistStore.toast('success', 'Child dilepas');
-                this.refreshChildSection();
-            });
-        });
     },
 
     openPickChildModal: function () {
@@ -558,31 +535,22 @@ const MappingSubdistForm = {
     },
 
     destroyOrphanTable: function () {
-        if (this.orphanTable) {
-            try { this.orphanTable.destroy(); } catch (e) { /* ignore */ }
-            this.orphanTable = null;
-        }
-        const $ = window.jQuery;
-        if ($ && $.fn.DataTable && $.fn.DataTable.isDataTable('#tblOrphan')) {
-            try { $('#tblOrphan').DataTable().clear().destroy(); } catch (e) { /* ignore */ }
-        }
-        const tbody = document.getElementById('tblOrphanBody');
-        if (tbody) tbody.innerHTML = '';
+        DfDataTable.destroy('#tblOrphan');
+        this.orphanTable = null;
     },
 
     renderOrphanTable: function (parentItem) {
         const esc = MappingSubdistStore.esc;
-        const orphans = MappingSubdistStore.getOrphanCandidates(parentItem);
+        const orphans = MappingSubdistStore.getBosnetChildCandidates(parentItem);
         const $ = window.jQuery;
 
-        this.destroyOrphanTable();
         const chkAll = document.getElementById('chkOrphanAll');
         if (chkAll) chkAll.checked = false;
         this.updateOrphanSelectedLabel(0);
 
         const rows = orphans.map(c => [
             `<div class="text-center">
-                <input type="checkbox" class="form-check-input chk-orphan" value="${esc(c.id)}">
+                <input type="checkbox" class="form-check-input chk-orphan" value="${esc(c.kodeKmmd)}">
              </div>`,
             `<code>${esc(c.kodeKmmd)}</code>`,
             esc(c.namaKmmd),
@@ -591,60 +559,31 @@ const MappingSubdistForm = {
             esc(c.tipeKmmd)
         ]);
 
-        if ($ && $.fn.DataTable) {
-            this.orphanTable = $('#tblOrphan').DataTable({
-                data: rows,
-                columns: [
-                    { orderable: false, searchable: false, className: 'text-center' },
-                    { orderable: true },
-                    { orderable: true },
-                    { orderable: true },
-                    { orderable: true },
-                    { orderable: true }
-                ],
-                pageLength: 10,
-                ordering: true,
-                autoWidth: false,
-                language: {
-                    emptyTable: 'Tidak ada kandidat. Semua subdist sudah Parent Group atau sudah jadi child di sini.',
-                    search: 'Cari:',
-                    lengthMenu: 'Tampil _MENU_',
-                    info: '_START_–_END_ dari _TOTAL_',
-                    infoEmpty: '0 data',
-                    zeroRecords: 'Tidak ditemukan',
-                    paginate: { previous: 'Prev', next: 'Next' }
-                }
-            });
+        this.orphanTable = DfDataTable.init('#tblOrphan', {
+            data: rows,
+            columns: [
+                { orderable: false, searchable: false, className: 'text-center' },
+                { orderable: true },
+                { orderable: true },
+                { orderable: true },
+                { orderable: true },
+                { orderable: true }
+            ],
+            language: Object.assign({}, DfDataTable.language, {
+                emptyTable: 'Tidak ada kandidat dari Bosnet API.'
+            })
+        });
 
+        if ($ && this.orphanTable) {
             const self = this;
             $('#tblOrphan').off('change', '.chk-orphan').on('change', '.chk-orphan', function () {
                 self.updateOrphanSelectedLabel();
             });
             const modalEl = document.getElementById('modalPickChild');
             modalEl.addEventListener('shown.bs.modal', () => {
-                if (self.orphanTable) self.orphanTable.columns.adjust();
+                self.scheduleDtAdjust(self.orphanTable);
             }, { once: true });
-            return;
         }
-
-        const tbody = document.getElementById('tblOrphanBody');
-        if (!orphans.length) {
-            tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-3">Tidak ada kandidat</td></tr>`;
-            return;
-        }
-        tbody.innerHTML = orphans.map(c => `<tr>
-            <td class="text-center">
-                <input type="checkbox" class="form-check-input chk-orphan" value="${esc(c.id)}">
-            </td>
-            <td><code>${esc(c.kodeKmmd)}</code></td>
-            <td>${esc(c.namaKmmd)}</td>
-            <td>${esc(c.titik)}</td>
-            <td>${esc(c.region)}</td>
-            <td>${esc(c.tipeKmmd)}</td>
-        </tr>`).join('');
-        tbody.querySelectorAll('.chk-orphan').forEach(chk => {
-            chk.addEventListener('change', () => this.updateOrphanSelectedLabel());
-        });
     },
 
     getSelectedOrphanIds: function () {
@@ -721,8 +660,7 @@ const MappingSubdistForm = {
                 : namaGroup
         });
         MappingSubdistStore.upsert(parent);
-
-        ids.forEach(id => MappingSubdistStore.setAsChildOf(id, parent));
+        MappingSubdistStore.addChildrenFromBosnet(ids, parent);
 
         MappingSubdistStore.toast('success', ids.length + ' child ditambahkan');
 
@@ -734,11 +672,194 @@ const MappingSubdistForm = {
             window.jQuery(modalEl).modal('hide');
         }
 
-        this.refreshChildSection();
+        this.refreshMappingSections();
     },
 
     pickChild: function (childId) {
         this.pickChildren([childId]);
+    },
+
+    destroyActivityTable: function () {
+        DfDataTable.destroy('#tblActivity');
+        this.activityTable = null;
+    },
+
+    renderActivities: function (activities) {
+        const esc = MappingSubdistStore.esc;
+        const list = Array.isArray(activities) ? activities : [];
+        const $ = window.jQuery;
+
+        const rows = list.map(a => {
+            const unlinkBtn = this.readOnly
+                ? ''
+                : `<button type="button" class="btn btn-sm btn-outline-danger btn-unlink-activity" data-id="${esc(a.id || a.kode)}">Lepas</button>`;
+            return [
+                `<code>${esc(a.kode)}</code>`,
+                esc(a.nama),
+                esc(a.kategori),
+                esc(a.deskripsi),
+                `<div class="text-center text-nowrap">${unlinkBtn}</div>`
+            ];
+        });
+
+        this.activityTable = DfDataTable.init('#tblActivity', {
+            data: rows,
+            columns: [
+                { orderable: true },
+                { orderable: true },
+                { orderable: true },
+                { orderable: true },
+                { orderable: false, searchable: false, className: 'text-center' }
+            ],
+            language: Object.assign({}, DfDataTable.language, {
+                emptyTable: 'Belum ada activity'
+            })
+        });
+
+        if ($ && this.activityTable) {
+            const self = this;
+            $('#tblActivity').off('click', '.btn-unlink-activity').on('click', '.btn-unlink-activity', function () {
+                MappingSubdistStore.unlinkActivity(self.itemId, this.getAttribute('data-id'));
+                MappingSubdistStore.toast('success', 'Activity dilepas');
+                self.refreshActivitySection();
+            });
+        }
+    },
+
+    openPickActivityModal: function () {
+        if (!this.isParentMode()) {
+            MappingSubdistStore.toast('warning', 'Mapping activity hanya untuk Parent (Group / Non Group)');
+            return;
+        }
+        if (!this.ensureParentSaved()) return;
+
+        const parent = this.getFormSnapshot();
+        this.renderActivityLovTable(parent);
+
+        const modalEl = document.getElementById('modalPickActivity');
+        if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        } else if (window.jQuery) {
+            window.jQuery(modalEl).modal('show');
+        }
+    },
+
+    destroyActivityLovTable: function () {
+        DfDataTable.destroy('#tblActivityLov');
+        this.activityLovTable = null;
+    },
+
+    renderActivityLovTable: function (parentItem) {
+        const esc = MappingSubdistStore.esc;
+        const list = MappingSubdistStore.getActivityCandidates(parentItem);
+        const $ = window.jQuery;
+
+        const chkAll = document.getElementById('chkActivityAll');
+        if (chkAll) chkAll.checked = false;
+        this.updateActivitySelectedLabel(0);
+
+        const rows = list.map(a => [
+            `<div class="text-center">
+                <input type="checkbox" class="form-check-input chk-activity" value="${esc(a.id)}">
+             </div>`,
+            `<code>${esc(a.kode)}</code>`,
+            esc(a.nama),
+            esc(a.kategori),
+            esc(a.deskripsi)
+        ]);
+
+        this.activityLovTable = DfDataTable.init('#tblActivityLov', {
+            data: rows,
+            columns: [
+                { orderable: false, searchable: false, className: 'text-center' },
+                { orderable: true },
+                { orderable: true },
+                { orderable: true },
+                { orderable: true }
+            ],
+            language: Object.assign({}, DfDataTable.language, {
+                emptyTable: 'Tidak ada kandidat dari Master Data API (semua sudah ter-mapping).'
+            })
+        });
+
+        if ($ && this.activityLovTable) {
+            const self = this;
+            $('#tblActivityLov').off('change', '.chk-activity').on('change', '.chk-activity', function () {
+                self.updateActivitySelectedLabel();
+            });
+            const modalEl = document.getElementById('modalPickActivity');
+            modalEl.addEventListener('shown.bs.modal', () => {
+                self.scheduleDtAdjust(self.activityLovTable);
+            }, { once: true });
+        }
+    },
+
+    getSelectedActivityIds: function () {
+        const ids = [];
+        const $ = window.jQuery;
+        if ($ && this.activityLovTable) {
+            this.activityLovTable.$('.chk-activity:checked').each(function () {
+                ids.push(this.value);
+            });
+            return [...new Set(ids)];
+        }
+        document.querySelectorAll('#tblActivityLov .chk-activity:checked').forEach(chk => {
+            ids.push(chk.value);
+        });
+        return [...new Set(ids)];
+    },
+
+    updateActivitySelectedLabel: function (count) {
+        const label = document.getElementById('activitySelectedLabel');
+        if (!label) return;
+        const n = typeof count === 'number' ? count : this.getSelectedActivityIds().length;
+        label.textContent = n + ' dipilih';
+    },
+
+    toggleSelectAllActivities: function (checked) {
+        const $ = window.jQuery;
+        if ($ && this.activityLovTable) {
+            this.activityLovTable.$('.chk-activity').prop('checked', !!checked);
+        } else {
+            document.querySelectorAll('#tblActivityLov .chk-activity').forEach(chk => {
+                chk.checked = !!checked;
+            });
+        }
+        this.updateActivitySelectedLabel();
+    },
+
+    confirmPickActivities: function () {
+        const ids = this.getSelectedActivityIds();
+        if (!ids.length) {
+            MappingSubdistStore.toast('warning', 'Centang minimal 1 activity');
+            return;
+        }
+        this.pickActivities(ids);
+    },
+
+    pickActivities: function (activityIds) {
+        const ids = Array.isArray(activityIds) ? activityIds : [activityIds];
+        if (!ids.length) return;
+        if (!this.ensureParentSaved()) return;
+
+        const parent = MappingSubdistStore.getById(this.itemId);
+        if (!parent) {
+            MappingSubdistStore.toast('warning', 'Parent belum tersimpan');
+            return;
+        }
+
+        MappingSubdistStore.addActivities(ids, parent);
+        MappingSubdistStore.toast('success', ids.length + ' activity ditambahkan');
+
+        const modalEl = document.getElementById('modalPickActivity');
+        if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            const inst = bootstrap.Modal.getInstance(modalEl);
+            if (inst) inst.hide();
+        } else if (window.jQuery) {
+            window.jQuery(modalEl).modal('hide');
+        }
+
+        this.refreshActivitySection();
     },
 
     save: function (opts) {
@@ -803,7 +924,7 @@ const MappingSubdistForm = {
         }
 
         if (!silent) MappingSubdistStore.toast('success', 'Data tersimpan');
-        this.refreshChildSection();
+        this.refreshMappingSections();
         return true;
     }
 };

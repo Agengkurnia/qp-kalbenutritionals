@@ -17,13 +17,13 @@
         <div class="card mb-4">
             <div class="card-body">
                 <div class="row g-3 align-items-end">
-                    <div class="col-md-4">
+                    <div class="col-md-5">
                         <label class="form-label" for="filterRegion">Region</label>
                         <select id="filterRegion" class="form-select">
                             <option value="">Semua Region</option>
                         </select>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-4">
                         <label class="form-label" for="filterGroupType">Group / Non Group</label>
                         <select id="filterGroupType" class="form-select">
                             <option value="">Semua</option>
@@ -32,10 +32,6 @@
                         </select>
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label" for="filterSearch">Cari</label>
-                        <input type="text" id="filterSearch" class="form-control" placeholder="Kode / Nama / Titik">
-                    </div>
-                    <div class="col-md-2">
                         <button type="button" id="btnAddSubdist" class="btn btn-primary w-100">
                             <i class="fas fa-plus me-1"></i> Tambah
                         </button>
@@ -50,8 +46,8 @@
                 <small class="text-muted" id="subdistCountLabel">0 data</small>
             </div>
             <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover" id="tblMappingSubdist">
+                <div class="card-datatable table-responsive">
+                    <table class="table table-bordered table-hover table-sm align-middle w-100 df-dt-grid" id="tblMappingSubdist" style="width:100%">
                         <thead>
                             <tr>
                                 <th>Kode KMMD (Bosnet)</th>
@@ -65,7 +61,7 @@
                                 <th class="text-center">Aksi</th>
                             </tr>
                         </thead>
-                        <tbody id="tblMappingSubdistBody"></tbody>
+                        <tbody></tbody>
                     </table>
                 </div>
             </div>
@@ -75,6 +71,7 @@
     <script src="../js/layout.js"></script>
     <script src="../js/masters/MappingSubdist/seed-data.js"></script>
     <script src="../js/masters/MappingSubdist/MappingSubdistStore.js"></script>
+    <script src="../js/masters/MappingSubdist/DfDataTable.js"></script>
     <script src="../js/masters/MappingSubdist/MappingSubdist.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {

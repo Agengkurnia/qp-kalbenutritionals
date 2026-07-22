@@ -157,7 +157,7 @@
                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
                         <div>
                             <h5 class="mb-1">Mapping Child</h5>
-                            <small class="text-muted" id="childHint">Daftar child di group ini.</small>
+                            <small class="text-muted" id="childHint">Daftar child di bawah parent ini.</small>
                         </div>
                         <div class="d-flex align-items-center gap-2">
                             <span class="badge bg-label-primary" id="childCountBadge">0</span>
@@ -167,8 +167,8 @@
                         </div>
                     </div>
 
-                    <div class="table-responsive">
-                        <table class="table table-sm table-hover" id="tblChild" style="width:100%">
+                    <div class="card-datatable table-responsive">
+                        <table class="table table-bordered table-hover table-sm align-middle w-100 df-dt-grid" id="tblChild" style="width:100%">
                             <thead>
                                 <tr>
                                     <th>Kode (Bosnet)</th>
@@ -187,21 +187,53 @@
                 </div>
             </div>
 
-            <!-- Modal pilih orphan child (multi-select) -->
+            <!-- Activity mapping — island terpisah -->
+            <div class="card mb-4" id="accordionActivityMapping" style="display: none;">
+                <div class="card-body">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                        <div>
+                            <h5 class="mb-1">Mapping Activity</h5>
+                            <small class="text-muted" id="activityHint">Daftar activity yang di-mapping ke parent ini.</small>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-label-primary" id="activityCountBadge">0</span>
+                            <button type="button" id="btnAddActivity" class="btn btn-primary btn-sm">
+                                <i class="fas fa-plus me-1"></i> Add
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="card-datatable table-responsive">
+                        <table class="table table-bordered table-hover table-sm align-middle w-100 df-dt-grid" id="tblActivity" style="width:100%">
+                            <thead>
+                                <tr>
+                                    <th>Kode</th>
+                                    <th>Nama Activity</th>
+                                    <th>Kategori</th>
+                                    <th>Deskripsi</th>
+                                    <th class="text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tblActivityBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal pilih child dari Bosnet API (multi-select) -->
             <div class="modal fade" id="modalPickChild" tabindex="-1" aria-hidden="true">
                 <div class="modal-dialog modal-lg modal-dialog-scrollable">
                     <div class="modal-content">
                         <div class="modal-header">
-                            <h5 class="modal-title">Pilih Child Subdist</h5>
+                            <h5 class="modal-title">Pilih Child (Bosnet)</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body">
                             <p class="text-muted small mb-3">
-                                Centang satu atau lebih subdist kandidat (standalone / child group lain)
-                                untuk dipetakan sebagai child.
+                                Data dari <strong>Bosnet API</strong>. Centang satu atau lebih subdist untuk dipetakan sebagai child.
                             </p>
-                            <div class="table-responsive">
-                                <table class="table table-sm table-hover" id="tblOrphan" style="width:100%">
+                            <div class="card-datatable table-responsive">
+                                <table class="table table-bordered table-hover table-sm align-middle w-100 df-dt-grid" id="tblOrphan" style="width:100%">
                                     <thead>
                                         <tr>
                                             <th class="text-center" style="width:40px;">
@@ -230,6 +262,48 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Modal pilih activity dari Master Data API (multi-select) -->
+            <div class="modal fade" id="modalPickActivity" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Pilih Activity (Master Data)</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="text-muted small mb-3">
+                                Data dari <strong>Master Data API</strong>. Centang satu atau lebih activity untuk di-mapping.
+                            </p>
+                            <div class="card-datatable table-responsive">
+                                <table class="table table-bordered table-hover table-sm align-middle w-100 df-dt-grid" id="tblActivityLov" style="width:100%">
+                                    <thead>
+                                        <tr>
+                                            <th class="text-center" style="width:40px;">
+                                                <input type="checkbox" class="form-check-input" id="chkActivityAll" title="Pilih semua">
+                                            </th>
+                                            <th>Kode</th>
+                                            <th>Nama Activity</th>
+                                            <th>Kategori</th>
+                                            <th>Deskripsi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tblActivityLovBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="modal-footer justify-content-between">
+                            <small class="text-muted" id="activitySelectedLabel">0 dipilih</small>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Tutup</button>
+                                <button type="button" class="btn btn-primary" id="btnConfirmPickActivities">
+                                    <i class="fas fa-plus me-1"></i> Tambah yang dipilih
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <!-- Modal LOV Kode KMMD Bosnet (single select) -->
             <div class="modal fade" id="modalLovBosnet" tabindex="-1" aria-hidden="true">
                 <div class="modal-dialog modal-lg modal-dialog-scrollable">
@@ -240,8 +314,8 @@
                         </div>
                         <div class="modal-body">
                             <p class="text-muted small mb-3">Pilih satu subdist dari master Bosnet (single select).</p>
-                            <div class="table-responsive">
-                                <table class="table table-sm table-hover" id="tblBosnetLov" style="width:100%">
+                            <div class="card-datatable table-responsive">
+                                <table class="table table-bordered table-hover table-sm align-middle w-100 df-dt-grid" id="tblBosnetLov" style="width:100%">
                                     <thead>
                                         <tr>
                                             <th>Kode (Bosnet)</th>
@@ -267,7 +341,9 @@
 
     <script src="../js/layout.js"></script>
     <script src="../js/masters/MappingSubdist/seed-data.js"></script>
+    <script src="../js/masters/MappingSubdist/activity-seed.js"></script>
     <script src="../js/masters/MappingSubdist/MappingSubdistStore.js"></script>
+    <script src="../js/masters/MappingSubdist/DfDataTable.js"></script>
     <script src="../js/masters/MappingSubdist/MappingSubdistForm.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {

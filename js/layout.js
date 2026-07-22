@@ -56,7 +56,7 @@ class Layout {
             }
         });
 
-        // Add smooth transition CSS for sidebar menu
+        // Add smooth transition CSS for sidebar menu + DF DataTable grid
         const style = document.createElement('style');
         style.innerHTML = `
             .menu-inner .menu-item .menu-sub {
@@ -76,6 +76,49 @@ class Layout {
                 .layout-menu-toggle.d-xl-none {
                     display: flex !important;
                 }
+            }
+
+            /* DF DataTables — grid */
+            table.df-dt-grid {
+                border-collapse: collapse !important;
+                width: 100% !important;
+            }
+            table.df-dt-grid thead th {
+                background: #f8f9fa;
+                font-size: 0.75rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: .03em;
+                white-space: nowrap;
+                vertical-align: middle;
+                border: 1px solid #d9dee3 !important;
+            }
+            table.df-dt-grid tbody td {
+                vertical-align: middle;
+                border: 1px solid #d9dee3 !important;
+            }
+            table.df-dt-grid tbody tr:hover {
+                background-color: rgba(67, 89, 113, 0.04);
+            }
+            .df-dt-wrap,
+            .dataTables_wrapper {
+                width: 100%;
+            }
+            .dataTables_wrapper .dataTables_filter {
+                text-align: right;
+            }
+            .dataTables_wrapper .dataTables_filter input,
+            .dataTables_wrapper .dataTables_length select {
+                margin-left: .5rem;
+                display: inline-block;
+                width: auto;
+            }
+            .dataTables_wrapper .dataTables_paginate .paginate_button {
+                padding: .25rem .5rem !important;
+            }
+            /* Modal LOV: pastikan grid DT penuh */
+            .modal .dataTables_wrapper {
+                padding: 0;
             }
         `;
         document.head.appendChild(style);
@@ -132,16 +175,6 @@ class Layout {
                             <li class="menu-item">
                                 <a href="${this.basePath}masters/mapping-subdist.html" class="menu-link">
                                     <div data-i18n="Mapping Subdist">Mapping Subdist</div>
-                                </a>
-                            </li>
-                            <li class="menu-item">
-                                <a href="${this.basePath}masters/vendor.html" class="menu-link">
-                                    <div data-i18n="Vendor">Vendor</div>
-                                </a>
-                            </li>
-                            <li class="menu-item">
-                                <a href="${this.basePath}masters/activity-type.html" class="menu-link">
-                                    <div data-i18n="Jenis Activity">Jenis Activity</div>
                                 </a>
                             </li>
                         </ul>
@@ -242,10 +275,12 @@ class Layout {
 
         const scripts = isFileProtocol
             ? [
-                // Only jQuery + Bootstrap needed for basic layout on file://
+                // Minimum + DataTables (dipakai Mapping Subdist grid)
                 'lib/vuexy/vendor/libs/jquery/jquery.js',
                 'lib/vuexy/vendor/libs/popper/popper.js',
                 'lib/vuexy/vendor/js/bootstrap.js',
+                'lib/datatables/jquery.dataTables.min.js',
+                'lib/vuexy/vendor/js/tables/datatable/dataTables.bootstrap5.min.js',
                 'js/role-manager.js'
               ]
             : [

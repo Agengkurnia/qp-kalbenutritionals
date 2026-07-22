@@ -3,9 +3,11 @@
  */
 const MappingSubdistPage = {
     data: [],
+    table: null,
 
     init: async function () {
         await MappingSubdistStore.ensureSwal();
+        await DfDataTable.ensureAssets();
         this.data = MappingSubdistStore.load();
         this.bindFilters();
         this.applyRoleAccess();
@@ -27,9 +29,8 @@ const MappingSubdistPage = {
             regionSel.appendChild(opt);
         });
 
-        ['filterRegion', 'filterGroupType', 'filterSearch'].forEach(id => {
-            const el = document.getElementById(id);
-            el.addEventListener(id === 'filterSearch' ? 'input' : 'change', () => this.render());
+        ['filterRegion', 'filterGroupType'].forEach(id => {
+            document.getElementById(id).addEventListener('change', () => this.render());
         });
 
         document.getElementById('btnAddSubdist').addEventListener('click', () => {
@@ -40,38 +41,27 @@ const MappingSubdistPage = {
     getFiltered: function () {
         const region = document.getElementById('filterRegion').value;
         const groupType = document.getElementById('filterGroupType').value;
-        const q = (document.getElementById('filterSearch').value || '').toLowerCase().trim();
 
-        // Index hanya tampilkan Parent (YA)
         return this.data.filter(d => {
             if (d.parent !== 'YA') return false;
             if (region && d.region !== region) return false;
             if (groupType && d.groupType !== groupType) return false;
-            if (q) {
-                const hay = [d.kodeKmmd, d.namaKmmd, d.titik, d.namaGroup, d.branchEpm]
-                    .join(' ').toLowerCase();
-                if (!hay.includes(q)) return false;
-            }
             return true;
         });
     },
 
     render: function () {
         this.data = MappingSubdistStore.load();
-        const rows = this.getFiltered();
-        const tbody = document.getElementById('tblMappingSubdistBody');
+        const rowsData = this.getFiltered();
         const canEdit = MappingSubdistStore.canEdit();
         const esc = MappingSubdistStore.esc;
 
         document.getElementById('subdistCountLabel').textContent =
-            `${rows.length} data` + (rows.length !== this.data.length ? ` (dari ${this.data.length})` : '');
+            `${rowsData.length} parent` + (rowsData.length !== this.data.filter(d => d.parent === 'YA').length
+                ? ` (terfilter)`
+                : '');
 
-        if (!rows.length) {
-            tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">Tidak ada data</td></tr>`;
-            return;
-        }
-
-        tbody.innerHTML = rows.map(d => {
+        const rows = rowsData.map(d => {
             const parentBadge = '<span class="badge bg-label-success ms-2">Parent</span>';
             const groupBadge = d.groupType === 'Group'
                 ? '<span class="badge bg-label-primary">Group</span>'
@@ -84,31 +74,52 @@ const MappingSubdistPage = {
                 ? `<a class="btn btn-sm btn-icon btn-outline-primary me-1" title="Detail" href="${MappingSubdistStore.formUrl(d.id)}">
                         <i class="fas fa-edit"></i>
                    </a>
-                   <button type="button" class="btn btn-sm btn-icon btn-outline-danger" title="Hapus" data-action="delete" data-id="${d.id}">
+                   <button type="button" class="btn btn-sm btn-icon btn-outline-danger btn-delete-subdist" title="Hapus" data-id="${esc(d.id)}">
                         <i class="fas fa-trash"></i>
                    </button>`
                 : `<a class="btn btn-sm btn-icon btn-outline-secondary" title="Detail" href="${MappingSubdistStore.formUrl(d.id)}">
                         <i class="fas fa-eye"></i>
                    </a>`;
 
-            return `<tr>
-                <td><code>${esc(d.kodeKmmd)}</code></td>
-                <td>
-                    <span class="fw-semibold">${esc(d.namaKmmd)}</span>${parentBadge}${inactive}
-                </td>
-                <td>${esc(d.titik)}</td>
-                <td>${groupBadge}</td>
-                <td>${esc(d.namaGroup)}</td>
-                <td>${esc(d.branchEpm)} <small class="text-muted">(${esc(d.kodeBranch)})</small></td>
-                <td>${esc(d.region)}</td>
-                <td>${esc(d.tipeKmmd)}</td>
-                <td class="text-center text-nowrap">${actions}</td>
-            </tr>`;
-        }).join('');
-
-        tbody.querySelectorAll('[data-action="delete"]').forEach(btn => {
-            btn.addEventListener('click', () => this.deleteItem(btn.getAttribute('data-id')));
+            return [
+                `<code>${esc(d.kodeKmmd)}</code>`,
+                `<span class="fw-semibold">${esc(d.namaKmmd)}</span>${parentBadge}${inactive}`,
+                esc(d.titik),
+                groupBadge,
+                esc(d.namaGroup),
+                `${esc(d.branchEpm)} <small class="text-muted">(${esc(d.kodeBranch)})</small>`,
+                esc(d.region),
+                esc(d.tipeKmmd),
+                `<div class="text-center text-nowrap">${actions}</div>`
+            ];
         });
+
+        this.table = DfDataTable.init('#tblMappingSubdist', {
+            data: rows,
+            columns: [
+                { orderable: true },
+                { orderable: true },
+                { orderable: true },
+                { orderable: true },
+                { orderable: true },
+                { orderable: true },
+                { orderable: true },
+                { orderable: true },
+                { orderable: false, searchable: false, className: 'text-center' }
+            ],
+            order: [[1, 'asc']],
+            language: Object.assign({}, DfDataTable.language, {
+                emptyTable: 'Tidak ada data parent'
+            })
+        });
+
+        const self = this;
+        const $ = window.jQuery;
+        if ($ && this.table) {
+            $('#tblMappingSubdist').off('click', '.btn-delete-subdist').on('click', '.btn-delete-subdist', function () {
+                self.deleteItem(this.getAttribute('data-id'));
+            });
+        }
     },
 
     deleteItem: function (id) {

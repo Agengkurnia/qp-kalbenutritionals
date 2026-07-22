@@ -146,6 +146,126 @@ const MappingSubdistStore = {
         this.save(data);
     },
 
+    getBosnetMaster: function () {
+        const seed = Array.isArray(window.MappingSubdistSeed) ? window.MappingSubdistSeed : [];
+        const extra = Array.isArray(window.BosnetKmmdExtra) ? window.BosnetKmmdExtra : [];
+        return seed.concat(extra);
+    },
+
+    /** Kandidat child dari Bosnet API (exclude diri sendiri + child yang sudah ter-mapping) */
+    getBosnetChildCandidates: function (parentItem) {
+        if (!parentItem) return [];
+        const parentKode = parentItem.kodeKmmd || parentItem.id;
+        const linked = new Set(this.getChildren(parentItem).map(c => c.kodeKmmd));
+        const store = this.load();
+        const groupParents = new Set(
+            store
+                .filter(d =>
+                    d.parent === 'YA' &&
+                    d.groupType === 'Group' &&
+                    d.namaGroup &&
+                    d.namaGroup !== 'Non Group' &&
+                    d.kodeKmmd !== parentKode
+                )
+                .map(d => d.kodeKmmd)
+        );
+
+        return this.getBosnetMaster().filter(d => {
+            if (!d.kodeKmmd || d.kodeKmmd === parentKode) return false;
+            if (linked.has(d.kodeKmmd)) return false;
+            if (groupParents.has(d.kodeKmmd)) return false;
+            return true;
+        });
+    },
+
+    addChildrenFromBosnet: function (kodes, parentItem) {
+        const list = Array.isArray(kodes) ? kodes : [kodes];
+        const master = this.getBosnetMaster();
+        list.forEach(kode => {
+            const src = master.find(d => d.kodeKmmd === kode);
+            if (!src) return;
+
+            let existing = this.load().find(d => d.kodeKmmd === kode);
+            if (!existing) {
+                existing = {
+                    id: src.kodeKmmd,
+                    parent: 'TIDAK',
+                    parentKode: parentItem.id || parentItem.kodeKmmd,
+                    kodeKmmd: src.kodeKmmd,
+                    namaKmmd: src.namaKmmd || '',
+                    titik: src.titik || '',
+                    groupType: parentItem.groupType || 'Group',
+                    namaGroup: parentItem.groupType === 'Non Group' ? 'Non Group' : (parentItem.namaGroup || ''),
+                    namaSubdistGroup: parentItem.groupType === 'Non Group'
+                        ? (parentItem.namaKmmd || '')
+                        : (parentItem.namaSubdistGroup || parentItem.namaGroup || ''),
+                    kodeBranch: src.kodeBranch || '',
+                    branchEpm: src.branchEpm || '',
+                    region: src.region || '',
+                    tipeKmmd: src.tipeKmmd || 'KMMD-B',
+                    alamat: src.alamat || '',
+                    active: src.active !== false
+                };
+                this.upsert(existing);
+            } else {
+                this.setAsChildOf(existing.id, parentItem);
+            }
+        });
+    },
+
+    getMasterActivities: function () {
+        return Array.isArray(window.MasterActivitySeed)
+            ? window.MasterActivitySeed.filter(a => a.active !== false)
+            : [];
+    },
+
+    getMappedActivities: function (parentItem) {
+        if (!parentItem) return [];
+        const parent = this.getById(parentItem.id || parentItem.kodeKmmd);
+        const list = parent && Array.isArray(parent.activities) ? parent.activities : [];
+        return list.slice();
+    },
+
+    getActivityCandidates: function (parentItem) {
+        const mapped = new Set(this.getMappedActivities(parentItem).map(a => a.id || a.kode));
+        return this.getMasterActivities().filter(a => !mapped.has(a.id) && !mapped.has(a.kode));
+    },
+
+    addActivities: function (activityIds, parentItem) {
+        const ids = Array.isArray(activityIds) ? activityIds : [activityIds];
+        const parentId = parentItem.id || parentItem.kodeKmmd;
+        const parent = this.getById(parentId);
+        if (!parent) return;
+
+        const master = this.getMasterActivities();
+        const current = Array.isArray(parent.activities) ? parent.activities.slice() : [];
+        const have = new Set(current.map(a => a.id || a.kode));
+
+        ids.forEach(id => {
+            if (have.has(id)) return;
+            const src = master.find(a => a.id === id || a.kode === id);
+            if (!src) return;
+            current.push({
+                id: src.id,
+                kode: src.kode,
+                nama: src.nama,
+                kategori: src.kategori || '',
+                deskripsi: src.deskripsi || ''
+            });
+            have.add(src.id);
+        });
+
+        parent.activities = current;
+        this.upsert(parent);
+    },
+
+    unlinkActivity: function (parentId, activityId) {
+        const parent = this.getById(parentId);
+        if (!parent || !Array.isArray(parent.activities)) return;
+        parent.activities = parent.activities.filter(a => a.id !== activityId && a.kode !== activityId);
+        this.upsert(parent);
+    },
+
     toast: function (icon, text) {
         if (typeof Swal !== 'undefined') {
             Swal.fire({ icon, text, timer: 1800, showConfirmButton: false });
