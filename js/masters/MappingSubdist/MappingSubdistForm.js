@@ -69,6 +69,16 @@ const MappingSubdistForm = {
             btnAddActivity.addEventListener('click', () => this.openPickActivityModal());
         }
 
+        // Adjust DataTables saat ganti tab
+        const tabChild = document.getElementById('tab-child');
+        const tabActivity = document.getElementById('tab-activity');
+        if (tabChild) {
+            tabChild.addEventListener('shown.bs.tab', () => this.scheduleDtAdjust(this.childTable));
+        }
+        if (tabActivity) {
+            tabActivity.addEventListener('shown.bs.tab', () => this.scheduleDtAdjust(this.activityTable));
+        }
+
         const btnLov = document.getElementById('btnLovKmmd');
         if (btnLov) {
             btnLov.addEventListener('click', () => this.openBosnetLov());
@@ -340,15 +350,20 @@ const MappingSubdistForm = {
     },
 
     refreshMappingSections: function () {
+        const wrap = document.getElementById('cardMappingTabs');
+        const show = this.isParentMode();
+        if (wrap) wrap.style.display = show ? '' : 'none';
+        if (!show) {
+            this.destroyChildTable();
+            this.destroyActivityTable();
+            return;
+        }
         this.refreshChildSection();
         this.refreshActivitySection();
     },
 
     refreshChildSection: function () {
-        const card = document.getElementById('accordionChildMapping');
-        const show = this.isParentMode();
-        card.style.display = show ? '' : 'none';
-        if (!show) {
+        if (!this.isParentMode()) {
             this.destroyChildTable();
             return;
         }
@@ -379,11 +394,7 @@ const MappingSubdistForm = {
     },
 
     refreshActivitySection: function () {
-        const card = document.getElementById('accordionActivityMapping');
-        if (!card) return;
-        const show = this.isParentMode();
-        card.style.display = show ? '' : 'none';
-        if (!show) {
+        if (!this.isParentMode()) {
             this.destroyActivityTable();
             return;
         }

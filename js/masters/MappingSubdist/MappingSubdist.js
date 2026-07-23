@@ -71,12 +71,9 @@ const MappingSubdistPage = {
                 : '';
 
             const actions = canEdit
-                ? `<a class="btn btn-sm btn-icon btn-outline-primary me-1" title="Detail" href="${MappingSubdistStore.formUrl(d.id)}">
+                ? `<a class="btn btn-sm btn-icon btn-outline-primary" title="Detail" href="${MappingSubdistStore.formUrl(d.id)}">
                         <i class="fas fa-edit"></i>
-                   </a>
-                   <button type="button" class="btn btn-sm btn-icon btn-outline-danger btn-delete-subdist" title="Hapus" data-id="${esc(d.id)}">
-                        <i class="fas fa-trash"></i>
-                   </button>`
+                   </a>`
                 : `<a class="btn btn-sm btn-icon btn-outline-secondary" title="Detail" href="${MappingSubdistStore.formUrl(d.id)}">
                         <i class="fas fa-eye"></i>
                    </a>`;
@@ -112,43 +109,6 @@ const MappingSubdistPage = {
                 emptyTable: 'Tidak ada data parent'
             })
         });
-
-        const self = this;
-        const $ = window.jQuery;
-        if ($ && this.table) {
-            $('#tblMappingSubdist').off('click', '.btn-delete-subdist').on('click', '.btn-delete-subdist', function () {
-                self.deleteItem(this.getAttribute('data-id'));
-            });
-        }
-    },
-
-    deleteItem: function (id) {
-        const item = MappingSubdistStore.getById(id);
-        if (!item) return;
-
-        const doDelete = () => {
-            MappingSubdistStore.remove(id);
-            this.render();
-            MappingSubdistStore.toast('success', 'Data dihapus');
-        };
-
-        if (typeof Swal !== 'undefined') {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Hapus Subdist?',
-                text: item.namaKmmd,
-                showCancelButton: true,
-                confirmButtonText: 'Hapus',
-                cancelButtonText: 'Batal',
-                customClass: {
-                    confirmButton: 'btn btn-danger',
-                    cancelButton: 'btn btn-outline-secondary ms-1'
-                },
-                buttonsStyling: false
-            }).then(res => { if (res.isConfirmed) doDelete(); });
-        } else if (confirm('Hapus ' + item.namaKmmd + '?')) {
-            doDelete();
-        }
     }
 };
 
