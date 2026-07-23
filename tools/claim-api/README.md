@@ -1,30 +1,60 @@
 # Claim ingest (Automate EPM + Claim API)
 
 ## Folder
-- `tools/automate-claim-epm/` — download dari aries (WebDAV) via `download_claim.py` / `.exe`
+- `tools/automate-claim-epm/` — download dari aries (WebDAV) via `download_claim.py` / `.exe` (**local only**)
 - `tools/claim-api/` — sidecar API lokal untuk Refresh + extract CSV → JSON
-- `data/claims/` — `latest.json` + `meta.json` (Last update)
+- `api/claims/` — Vercel serverless (WebDAV + Blob), pengganti exe di cloud
+- `Data/claims/` — fallback `latest.json` + `meta.json` (baca jika Blob masih kosong)
 
-## Jalankan API
+---
+
+## Local
+
 ```bat
 tools\claim-api\start-claim-api.bat
-```
-atau:
-```bat
-cd tools\claim-api
-python server.py
 ```
 
 Base URL: `http://127.0.0.1:5055`
 
-## Endpoint
-- `GET /api/health`
+UI Local / Live Server → otomatis pakai sidecar `:5055`.
+
+---
+
+## Vercel (tanpa .exe)
+
+Logika yang sama dengan `download_claim.py`: list WebDAV → download CSV → parse → simpan ke **Vercel Blob**.
+
+### 1. Env di Vercel Project Settings
+
+| Env | Contoh / keterangan |
+|-----|---------------------|
+| `CLAIM_WEBDAV_URL` | `aries.enseval.com` atau full `https://aries.enseval.com` |
+| `CLAIM_WEBDAV_USER` | user WebDAV |
+| `CLAIM_WEBDAV_PASS` | password WebDAV |
+| `BLOB_READ_WRITE_TOKEN` | dari Vercel Storage → Blob |
+| `CRON_SECRET` | (opsional) proteksi Refresh/Cron |
+| `CLAIM_REFRESH_SECRET` | (opsional) sama, alias |
+
+Jangan commit `login.txt` / password ke repo.
+
+### 2. Deploy
+
+```bat
+npm install
+vercel
+```
+
+### 3. Endpoint (sama dengan local)
+
+- `GET /api/claims/health`
 - `GET /api/claims/meta`
 - `GET /api/claims/summary`
 - `GET /api/claims/detail?branch=...&code=...`
-- `POST /api/claims/refresh` — download (opsional) + extract CSV terbaru
-- `POST /api/claims/extract` — extract saja tanpa download
+- `POST /api/claims/refresh` — download WebDAV + simpan Blob  
+- `GET /api/claims/refresh` — dipakai **Vercel Cron** harian `01:00 UTC`
 
-## UI
-Transaction → **Monitoring SubDist**  
-Butuh Claim API jalan agar tombol **Refresh** bekerja.
+UI di domain Vercel → otomatis pakai `/api/claims/*`. Tombol **Refresh** tetap ada.
+
+### Catatan
+- Butuh **Vercel Pro** (atau plan dengan `maxDuration` ≥ 60s) agar download+parse CSV besar (~6MB / 28k baris) tidak timeout. Hobby (~10s) sering kurang.
+- Cron di `vercel.json`: setiap hari ambil file claim terbaru.

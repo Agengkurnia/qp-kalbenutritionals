@@ -1,13 +1,30 @@
 /**
- * Monitoring Claim EPM — dari CSV LISTING_CLAIM (Claim API sidecar)
+ * Monitoring Claim EPM — CSV LISTING_CLAIM
+ * Local  → Claim API sidecar :5055
+ * Vercel → /api/claims/* (WebDAV + Blob)
  */
 const MonitoringSubdist = {
-    API_BASE: 'http://127.0.0.1:5055',
     summaryTable: null,
     detailTable: null,
     currentBranch: null,
     summaryKpis: null,
     mappedRows: [],
+
+    /** Local sidecar vs Vercel serverless */
+    getApiBase: function () {
+        const h = window.location.hostname;
+        const port = window.location.port;
+        const proto = window.location.protocol;
+        // file:// atau Live Server biasa → sidecar lokal
+        if (proto === 'file:') return 'http://127.0.0.1:5055';
+        if (h === 'localhost' || h === '127.0.0.1') {
+            // vercel dev biasanya :3000
+            if (port === '3000' || port === '3001') return '';
+            return 'http://127.0.0.1:5055';
+        }
+        // production / preview Vercel (atau domain custom)
+        return '';
+    },
 
     init: async function () {
         await MappingSubdistStore.ensureSwal();
@@ -27,7 +44,7 @@ const MonitoringSubdist = {
     },
 
     api: async function (path, options) {
-        const res = await fetch(this.API_BASE + path, Object.assign({
+        const res = await fetch(this.getApiBase() + path, Object.assign({
             headers: { 'Content-Type': 'application/json' }
         }, options || {}));
         let data = null;
@@ -135,7 +152,13 @@ const MonitoringSubdist = {
             this.applySummaryFilter();
             this.showSummaryView();
         } catch (e) {
-            this.setStatus('Claim API tidak aktif. Jalankan tools/claim-api/start-claim-api.bat', true);
+            const isVercel = !this.getApiBase();
+            this.setStatus(
+                isVercel
+                    ? (e.message || 'Claim API Vercel gagal. Cek env WebDAV + Blob.')
+                    : 'Claim API tidak aktif. Jalankan tools/claim-api/start-claim-api.bat',
+                true
+            );
             this.setLastUpdate(null);
             MappingSubdistStore.toast('warning', e.message || 'Gagal load summary');
             this.mappedRows = [];

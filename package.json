@@ -1,0 +1,7 @@
+{
+  "name": "qp-kalbe-df-prototype",
+  "private": true,
+  "dependencies": {
+    "@vercel/blob": "^0.27.3"
+  }
+}
