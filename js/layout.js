@@ -190,6 +190,11 @@ class Layout {
                         </a>
                         <ul class="menu-sub">
                             <li class="menu-item">
+                                <a href="${this.basePath}transactions/monitoring-subdist.html" class="menu-link">
+                                    <div data-i18n="Monitoring SubDist">Monitoring SubDist</div>
+                                </a>
+                            </li>
+                            <li class="menu-item">
                                 <a href="${this.basePath}transactions/memo-qp.html" class="menu-link">
                                     <div data-i18n="Memo QP">Memo QP</div>
                                 </a>
