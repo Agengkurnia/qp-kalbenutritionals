@@ -26,6 +26,7 @@ FILE_DIR = AUTOMATE_DIR / "file"
 DATA_DIR = ROOT / "data" / "claims"
 LATEST_JSON = DATA_DIR / "latest.json"
 META_JSON = DATA_DIR / "meta.json"
+PREVIOUS_SUMMARY_JSON = DATA_DIR / "previous-summary.json"
 DOWNLOAD_PY = AUTOMATE_DIR / "download_claim.py"
 DOWNLOAD_EXE = AUTOMATE_DIR / "download_claim.exe"
 
@@ -120,6 +121,25 @@ def parse_csv(path: Path) -> list[dict]:
     return rows
 
 
+def parse_trx_date(raw: str):
+    """Parse Oracle-style TRX_DATE e.g. 16-JUL-26 → date, else None."""
+    s = (raw or "").strip()
+    if not s:
+        return None
+    for fmt in ("%d-%b-%y", "%d-%b-%Y", "%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"):
+        try:
+            return datetime.strptime(s, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+def format_trx_date(d) -> str:
+    if not d:
+        return ""
+    return d.strftime("%d-%b-%y").upper()
+
+
 def build_payload(rows: list[dict], source_file: str) -> dict:
     by_branch: dict[str, dict] = {}
     for r in rows:
@@ -134,18 +154,34 @@ def build_payload(rows: list[dict], source_file: str) -> dict:
                 "trxCount": 0,
                 "totals": {k: 0.0 for k in AMOUNT_FIELDS},
                 "totalRp": 0.0,
+                "_minDate": None,
+                "_maxDate": None,
             }
         b = by_branch[key]
         b["trxCount"] += 1
         for k in AMOUNT_FIELDS:
             b["totals"][k] += r["_amounts"][k]
         b["totalRp"] += r["_totalRp"]
+        d = parse_trx_date(r.get("TRX_DATE") or "")
+        if d:
+            if b["_minDate"] is None or d < b["_minDate"]:
+                b["_minDate"] = d
+            if b["_maxDate"] is None or d > b["_maxDate"]:
+                b["_maxDate"] = d
 
     summary = sorted(by_branch.values(), key=lambda x: (-x["totalRp"], x["branchName"]))
     for s in summary:
         for k in AMOUNT_FIELDS:
             s["totals"][k] = round(s["totals"][k], 2)
         s["totalRp"] = round(s["totalRp"], 2)
+        min_d, max_d = s.pop("_minDate", None), s.pop("_maxDate", None)
+        s["trxDateMin"] = format_trx_date(min_d)
+        s["trxDateMax"] = format_trx_date(max_d)
+        if min_d and max_d and min_d != max_d:
+            s["trxDateLabel"] = f"{s['trxDateMin']} s/d {s['trxDateMax']}"
+        else:
+            s["trxDateLabel"] = s["trxDateMax"] or s["trxDateMin"] or "—"
+
 
     # Slim detail rows for UI (avoid huge payload fields)
     detail = []
@@ -177,8 +213,55 @@ def build_payload(rows: list[dict], source_file: str) -> dict:
     }
 
 
+def summary_branch_key(s: dict) -> str:
+    return f"{(s.get('branchCode') or '').strip()}|{(s.get('branchName') or '').strip()}"
+
+
+def snapshot_from_payload(payload: dict) -> dict:
+    by_key = {}
+    for s in payload.get("summary") or []:
+        by_key[summary_branch_key(s)] = float(s.get("totalRp") or 0)
+    return {
+        "sourceFile": payload.get("sourceFile"),
+        "fileDate": payload.get("fileDate"),
+        "lastUpdated": datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds"),
+        "byKey": by_key,
+    }
+
+
+def promote_latest_to_previous():
+    """Sebelum overwrite latest: simpan summary file exec sebelumnya (file vs file)."""
+    current = load_json(LATEST_JSON)
+    if not current or not current.get("summary"):
+        return
+    snap = snapshot_from_payload(current)
+    ensure_dirs()
+    with PREVIOUS_SUMMARY_JSON.open("w", encoding="utf-8") as f:
+        json.dump(snap, f, ensure_ascii=False, indent=2)
+
+
+def enrich_summary_with_previous(summary: list) -> list:
+    prev = load_json(PREVIOUS_SUMMARY_JSON) or {}
+    by_key = prev.get("byKey") or {}
+    for s in summary:
+        key = summary_branch_key(s)
+        if key not in by_key:
+            s["previousTotalRp"] = None
+            s["selisihRp"] = None
+            s["previousSourceFile"] = prev.get("sourceFile")
+            continue
+        prev_amt = float(by_key[key])
+        cur = float(s.get("totalRp") or 0)
+        s["previousTotalRp"] = round(prev_amt, 2)
+        s["selisihRp"] = round(cur - prev_amt, 2)
+        s["previousSourceFile"] = prev.get("sourceFile")
+    return summary
+
+
 def write_extract(payload: dict) -> dict:
     ensure_dirs()
+    # Rotasi: latest lama → previous (file exec sebelumnya)
+    promote_latest_to_previous()
     now = datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
     meta = {
         "lastUpdated": now,
@@ -188,7 +271,6 @@ def write_extract(payload: dict) -> dict:
         "branchCount": payload["branchCount"],
         "grandTotalRp": payload["grandTotalRp"],
     }
-    # Keep latest.json without full detail if too large? 28k rows OK for local (~10-20MB). Write both.
     with LATEST_JSON.open("w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False)
     with META_JSON.open("w", encoding="utf-8") as f:
@@ -270,7 +352,8 @@ class Handler(BaseHTTPRequestHandler):
                     "grandTotals": data.get("grandTotals"),
                     "grandTotalRp": data.get("grandTotalRp"),
                     "sourceFile": data.get("sourceFile"),
-                    "summary": data.get("summary", []),
+                    "previousMeta": load_json(PREVIOUS_SUMMARY_JSON),
+                    "summary": enrich_summary_with_previous(list(data.get("summary") or [])),
                 })
 
             if path == "/api/claims/detail":

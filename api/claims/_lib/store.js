@@ -8,6 +8,7 @@ const path = require('path');
 const AMOUNT_FIELDS = ['RP_LUMPSUM', 'RP_EDPH_PRIN', 'RP_PROMOSI', 'RP_EDHL', 'RP_BONUS'];
 const BLOB_LATEST = 'claims/latest.json';
 const BLOB_META = 'claims/meta.json';
+const BLOB_PREVIOUS = 'claims/previous-summary.json';
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -61,6 +62,32 @@ function parseCsvText(text) {
   return rows;
 }
 
+function parseTrxDate(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return null;
+  // 16-JUL-26
+  const m = s.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{2,4})$/);
+  if (m) {
+    const months = { JAN: 0, FEB: 1, MAR: 2, APR: 3, MAY: 4, JUN: 5, JUL: 6, AUG: 7, SEP: 8, OCT: 9, NOV: 10, DEC: 11 };
+    const mon = months[m[2].toUpperCase()];
+    if (mon == null) return null;
+    let y = Number(m[3]);
+    if (y < 100) y += 2000;
+    const d = new Date(y, mon, Number(m[1]));
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function formatTrxDate(d) {
+  if (!d) return '';
+  const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+  const dd = String(d.getDate()).padStart(2, '0');
+  const yy = String(d.getFullYear()).slice(-2);
+  return `${dd}-${months[d.getMonth()]}-${yy}`;
+}
+
 function buildPayload(rows, sourceFile) {
   const byBranch = new Map();
   for (const r of rows) {
@@ -74,19 +101,37 @@ function buildPayload(rows, sourceFile) {
         branchName: branch,
         trxCount: 0,
         totals: Object.fromEntries(AMOUNT_FIELDS.map((k) => [k, 0])),
-        totalRp: 0
+        totalRp: 0,
+        _minDate: null,
+        _maxDate: null
       });
     }
     const b = byBranch.get(key);
     b.trxCount += 1;
     for (const k of AMOUNT_FIELDS) b.totals[k] += r._amounts[k];
     b.totalRp += r._totalRp;
+    const d = parseTrxDate(r.TRX_DATE);
+    if (d) {
+      if (!b._minDate || d < b._minDate) b._minDate = d;
+      if (!b._maxDate || d > b._maxDate) b._maxDate = d;
+    }
   }
 
   const summary = [...byBranch.values()].sort((a, b) => b.totalRp - a.totalRp || a.branchName.localeCompare(b.branchName));
   for (const s of summary) {
     for (const k of AMOUNT_FIELDS) s.totals[k] = Math.round(s.totals[k] * 100) / 100;
     s.totalRp = Math.round(s.totalRp * 100) / 100;
+    const minD = s._minDate;
+    const maxD = s._maxDate;
+    delete s._minDate;
+    delete s._maxDate;
+    s.trxDateMin = formatTrxDate(minD);
+    s.trxDateMax = formatTrxDate(maxD);
+    if (minD && maxD && minD.getTime() !== maxD.getTime()) {
+      s.trxDateLabel = `${s.trxDateMin} s/d ${s.trxDateMax}`;
+    } else {
+      s.trxDateLabel = s.trxDateMax || s.trxDateMin || '—';
+    }
   }
 
   const detail = rows.map((r) => ({
@@ -168,9 +213,63 @@ async function loadMeta() {
   return null;
 }
 
+function localPreviousPath() {
+  return path.join(process.cwd(), 'Data', 'claims', 'previous-summary.json');
+}
+
+function summaryBranchKey(s) {
+  return `${String(s.branchCode || '').trim()}|${String(s.branchName || '').trim()}`;
+}
+
+function snapshotFromPayload(payload) {
+  const byKey = {};
+  for (const s of payload.summary || []) {
+    byKey[summaryBranchKey(s)] = Number(s.totalRp) || 0;
+  }
+  return {
+    sourceFile: payload.sourceFile,
+    fileDate: payload.fileDate,
+    lastUpdated: new Date().toISOString(),
+    byKey
+  };
+}
+
+function enrichSummaryWithPrevious(summary, previous) {
+  const byKey = (previous && previous.byKey) || {};
+  return (summary || []).map((s) => {
+    const key = summaryBranchKey(s);
+    const row = Object.assign({}, s);
+    if (!(key in byKey)) {
+      row.previousTotalRp = null;
+      row.selisihRp = null;
+      row.previousSourceFile = previous ? previous.sourceFile : null;
+      return row;
+    }
+    const prevAmt = Number(byKey[key]) || 0;
+    const cur = Number(s.totalRp) || 0;
+    row.previousTotalRp = Math.round(prevAmt * 100) / 100;
+    row.selisihRp = Math.round((cur - prevAmt) * 100) / 100;
+    row.previousSourceFile = previous ? previous.sourceFile : null;
+    return row;
+  });
+}
+
+async function loadPreviousSummary() {
+  if (hasBlobToken()) {
+    const url = await findBlobUrl(BLOB_PREVIOUS);
+    if (url) {
+      const res = await fetch(url);
+      if (res.ok) return await res.json();
+    }
+  }
+  const p = localPreviousPath();
+  if (fs.existsSync(p)) {
+    return JSON.parse(fs.readFileSync(p, 'utf8'));
+  }
+  return null;
+}
+
 async function savePayload(payload) {
-  const now = new Date().toISOString().replace(/\.\d{3}Z$/, '+00:00');
-  // Prefer Asia/Jakarta-ish display via ISO local offset if possible
   const meta = {
     lastUpdated: new Date().toISOString(),
     sourceFile: payload.sourceFile,
@@ -182,6 +281,17 @@ async function savePayload(payload) {
 
   if (!hasBlobToken()) {
     throw new Error('BLOB_READ_WRITE_TOKEN belum di-set di Vercel. Refresh production butuh Vercel Blob.');
+  }
+
+  // Rotasi: latest lama → previous
+  const existing = await loadLatestPayload();
+  if (existing && existing.summary && existing.summary.length) {
+    await put(BLOB_PREVIOUS, JSON.stringify(snapshotFromPayload(existing)), {
+      access: 'public',
+      addRandomSuffix: false,
+      allowOverwrite: true,
+      contentType: 'application/json'
+    });
   }
 
   await put(BLOB_LATEST, JSON.stringify(payload), {
@@ -316,6 +426,8 @@ module.exports = {
   sendJson,
   loadLatestPayload,
   loadMeta,
+  loadPreviousSummary,
+  enrichSummaryWithPrevious,
   refreshFromWebdav,
   assertRefreshAuthorized,
   hasBlobToken

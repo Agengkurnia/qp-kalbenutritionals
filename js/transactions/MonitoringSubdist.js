@@ -104,6 +104,19 @@ const MonitoringSubdist = {
         return v.toLocaleString('id-ID', { maximumFractionDigits: 0 });
     },
 
+    formatPreviousRp: function (n) {
+        if (n == null || n === '') return '—';
+        return this.formatRp(n);
+    },
+
+    formatSelisih: function (n) {
+        if (n == null || n === '') return '—';
+        const v = Number(n) || 0;
+        const cls = v > 0 ? 'text-success' : (v < 0 ? 'text-danger' : 'text-muted');
+        const sign = v > 0 ? '+' : '';
+        return `<span class="${cls} fw-semibold">${sign}${this.formatRp(v)}</span>`;
+    },
+
     enrichWithSubdist: function (summaryRows) {
         const masters = MappingSubdistStore.load().filter(d => d.parent === 'YA');
         const byCode = new Map();
@@ -248,7 +261,9 @@ const MonitoringSubdist = {
             self.formatRp(r.totals && r.totals.RP_EDPH_PRIN),
             self.formatRp(r.totals && r.totals.RP_PROMOSI),
             self.formatRp(r.totals && r.totals.RP_EDHL),
-            self.formatRp(r.totalRp)
+            self.formatRp(r.totalRp),
+            self.formatPreviousRp(r.previousTotalRp),
+            self.formatSelisih(r.selisihRp)
         ]);
 
         this.summaryTable = DfDataTable.init('#tblClaimSummary', {
@@ -258,6 +273,8 @@ const MonitoringSubdist = {
                 { orderable: true },
                 { orderable: true },
                 { orderable: true },
+                { orderable: true, className: 'text-end' },
+                { orderable: true, className: 'text-end' },
                 { orderable: true, className: 'text-end' },
                 { orderable: true, className: 'text-end' },
                 { orderable: true, className: 'text-end' },

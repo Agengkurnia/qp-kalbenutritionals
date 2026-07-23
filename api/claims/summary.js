@@ -1,4 +1,11 @@
-const { sendJson, loadLatestPayload, loadMeta, cors } = require('./_lib/store');
+const {
+  sendJson,
+  loadLatestPayload,
+  loadMeta,
+  loadPreviousSummary,
+  enrichSummaryWithPrevious,
+  cors
+} = require('./_lib/store');
 
 module.exports = async function handler(req, res) {
   cors(res);
@@ -25,15 +32,17 @@ module.exports = async function handler(req, res) {
       branchCount: data.branchCount,
       grandTotalRp: data.grandTotalRp
     };
+    const previousMeta = await loadPreviousSummary();
     return sendJson(res, 200, {
       ok: true,
       meta,
+      previousMeta,
       rowCount: data.rowCount,
       branchCount: data.branchCount,
       grandTotals: data.grandTotals,
       grandTotalRp: data.grandTotalRp,
       sourceFile: data.sourceFile,
-      summary: data.summary || []
+      summary: enrichSummaryWithPrevious(data.summary || [], previousMeta)
     });
   } catch (e) {
     return sendJson(res, 500, { ok: false, message: e.message || String(e) });
