@@ -152,29 +152,44 @@ const MappingSubdistStore = {
         return seed.concat(extra);
     },
 
-    /** Kandidat child dari Bosnet API (exclude diri sendiri + child yang sudah ter-mapping) */
+    /**
+     * Kandidat child dari Bosnet — hanya yang belum punya parent.
+     * Tidak ditampilkan: diri sendiri, sudah child (punya parent), Non Group, Parent Group lain.
+     */
     getBosnetChildCandidates: function (parentItem) {
         if (!parentItem) return [];
         const parentKode = parentItem.kodeKmmd || parentItem.id;
         const linked = new Set(this.getChildren(parentItem).map(c => c.kodeKmmd));
         const store = this.load();
-        const groupParents = new Set(
-            store
-                .filter(d =>
-                    d.parent === 'YA' &&
-                    d.groupType === 'Group' &&
-                    d.namaGroup &&
-                    d.namaGroup !== 'Non Group' &&
-                    d.kodeKmmd !== parentKode
-                )
-                .map(d => d.kodeKmmd)
+        const byKode = new Map(
+            store.filter(d => d.kodeKmmd).map(d => [String(d.kodeKmmd), d])
         );
 
         return this.getBosnetMaster().filter(d => {
-            if (!d.kodeKmmd || d.kodeKmmd === parentKode) return false;
-            if (linked.has(d.kodeKmmd)) return false;
-            if (groupParents.has(d.kodeKmmd)) return false;
-            return true;
+            const kode = d.kodeKmmd ? String(d.kodeKmmd) : '';
+            if (!kode || kode === String(parentKode)) return false;
+            if (linked.has(d.kodeKmmd) || linked.has(kode)) return false;
+
+            const existing = byKode.get(kode);
+            // Belum ada di mapping sama sekali → boleh dipilih
+            if (!existing) return true;
+
+            // Sudah punya parent / sudah jadi child → skip
+            if (existing.parentKode || existing.parent === 'TIDAK') return false;
+
+            // Non Group (standalone) → skip
+            if (
+                existing.groupType === 'Non Group' ||
+                !existing.namaGroup ||
+                existing.namaGroup === 'Non Group'
+            ) {
+                return false;
+            }
+
+            // Parent Group (YA) → skip
+            if (existing.parent === 'YA') return false;
+
+            return false;
         });
     },
 
@@ -272,6 +287,28 @@ const MappingSubdistStore = {
         } else {
             alert(text);
         }
+    },
+
+    /** @returns {Promise<boolean>} */
+    confirm: async function (text, title) {
+        await this.ensureSwal();
+        if (typeof Swal === 'undefined') {
+            return window.confirm(text);
+        }
+        const result = await Swal.fire({
+            icon: 'warning',
+            title: title || 'Konfirmasi',
+            text,
+            showCancelButton: true,
+            confirmButtonText: 'Ya, lepas',
+            cancelButtonText: 'Batal',
+            customClass: {
+                confirmButton: 'btn btn-danger me-2',
+                cancelButton: 'btn btn-label-secondary'
+            },
+            buttonsStyling: false
+        });
+        return !!result.isConfirmed;
     },
 
     esc: function (v) {

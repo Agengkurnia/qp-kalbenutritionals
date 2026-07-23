@@ -468,7 +468,8 @@ const MappingSubdistForm = {
         const rows = list.map(c => {
             const unlinkBtn = this.readOnly
                 ? ''
-                : `<button type="button" class="btn btn-sm btn-outline-danger btn-unlink-child" data-id="${esc(c.id)}">Lepas</button>`;
+                : `<button type="button" class="btn btn-sm btn-outline-danger btn-unlink-child"
+                    data-id="${esc(c.id)}" data-name="${esc(c.namaKmmd || c.kodeKmmd)}">Lepas</button>`;
             const statusBadge = c.active === false
                 ? '<span class="badge bg-label-danger">Non Active</span>'
                 : '<span class="badge bg-label-success">Active</span>';
@@ -503,8 +504,14 @@ const MappingSubdistForm = {
 
         if ($ && this.childTable) {
             const self = this;
-            $('#tblChild').off('click', '.btn-unlink-child').on('click', '.btn-unlink-child', function () {
-                MappingSubdistStore.unlinkChild(this.getAttribute('data-id'));
+            $('#tblChild').off('click', '.btn-unlink-child').on('click', '.btn-unlink-child', async function () {
+                const id = this.getAttribute('data-id');
+                const name = this.getAttribute('data-name') || id;
+                const ok = await MappingSubdistStore.confirm(
+                    `Lepas child "${name}" dari parent ini?`
+                );
+                if (!ok) return;
+                MappingSubdistStore.unlinkChild(id);
                 MappingSubdistStore.toast('success', 'Child dilepas');
                 self.refreshChildSection();
             });
@@ -703,7 +710,8 @@ const MappingSubdistForm = {
         const rows = list.map(a => {
             const unlinkBtn = this.readOnly
                 ? ''
-                : `<button type="button" class="btn btn-sm btn-outline-danger btn-unlink-activity" data-id="${esc(a.id || a.kode)}">Lepas</button>`;
+                : `<button type="button" class="btn btn-sm btn-outline-danger btn-unlink-activity"
+                    data-id="${esc(a.id || a.kode)}" data-name="${esc(a.nama || a.kode)}">Lepas</button>`;
             return [
                 `<code>${esc(a.kode)}</code>`,
                 esc(a.nama),
@@ -729,8 +737,14 @@ const MappingSubdistForm = {
 
         if ($ && this.activityTable) {
             const self = this;
-            $('#tblActivity').off('click', '.btn-unlink-activity').on('click', '.btn-unlink-activity', function () {
-                MappingSubdistStore.unlinkActivity(self.itemId, this.getAttribute('data-id'));
+            $('#tblActivity').off('click', '.btn-unlink-activity').on('click', '.btn-unlink-activity', async function () {
+                const id = this.getAttribute('data-id');
+                const name = this.getAttribute('data-name') || id;
+                const ok = await MappingSubdistStore.confirm(
+                    `Lepas activity "${name}" dari mapping ini?`
+                );
+                if (!ok) return;
+                MappingSubdistStore.unlinkActivity(self.itemId, id);
                 MappingSubdistStore.toast('success', 'Activity dilepas');
                 self.refreshActivitySection();
             });
