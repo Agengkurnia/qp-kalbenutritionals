@@ -41,6 +41,15 @@ const MonitoringSubdist = {
         if (search) {
             search.addEventListener('input', () => this.applySummaryFilter());
         }
+
+        ['tab-detail-trx', 'tab-detail-jenis', 'tab-detail-child'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('shown.bs.tab', () => {
+                    if (id === 'tab-detail-trx') this.scheduleAdjust(this.detailTable);
+                });
+            }
+        });
     },
 
     api: async function (path, options) {
@@ -189,7 +198,7 @@ const MonitoringSubdist = {
             btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Refreshing...';
         }
         try {
-            this.setStatus('Download + extract berjalan...');
+            this.setStatus('');
             const result = await this.api('/api/claims/refresh', {
                 method: 'POST',
                 body: JSON.stringify({})
@@ -198,8 +207,29 @@ const MonitoringSubdist = {
             this.setLastUpdate(result.meta);
             await this.loadSummary();
         } catch (e) {
-            MappingSubdistStore.toast('error', e.message || 'Refresh gagal');
-            this.setStatus(e.message || 'Refresh gagal', true);
+            const msg = e.message || 'Refresh gagal';
+            // Data yang sudah tampil tetap dipakai; jangan biarkan banner merah nempel
+            this.setStatus('');
+            if (/BLOB_READ_WRITE_TOKEN/i.test(msg)) {
+                await MappingSubdistStore.ensureSwal();
+                if (typeof Swal !== 'undefined') {
+                    await Swal.fire({
+                        icon: 'info',
+                        title: 'Refresh cloud belum siap',
+                        html: 'Di Vercel, tombol Refresh butuh <b>Vercel Blob</b>.<br><br>' +
+                            '1. Vercel → Project → <b>Storage</b> → buat/hubungkan <b>Blob</b><br>' +
+                            '2. Pastikan env <code>BLOB_READ_WRITE_TOKEN</code> terisi<br>' +
+                            '3. Isi juga <code>CLAIM_WEBDAV_URL/USER/PASS</code><br>' +
+                            '4. Redeploy, lalu Refresh lagi<br><br>' +
+                            '<small class="text-muted">Tanpa itu, halaman tetap bisa baca data dari file yang sudah di-commit — hanya Refresh live yang belum jalan.</small>',
+                        confirmButtonText: 'Mengerti'
+                    });
+                } else {
+                    MappingSubdistStore.toast('warning', msg);
+                }
+            } else {
+                MappingSubdistStore.toast('error', msg);
+            }
         } finally {
             if (btn) {
                 btn.disabled = false;
@@ -217,6 +247,8 @@ const MonitoringSubdist = {
 
     renderKpis: function (data) {
         this.summaryKpis = data;
+        const unmappedEl = document.getElementById('kpiUnmapped');
+        if (unmappedEl) unmappedEl.className = 'fw-bold mb-0';
         if (!data) {
             this.setKpi('kpiTotal', '—', 'Total (Rp)');
             this.setKpi('kpiMapped', '—', 'SubDist Ter-mapping');
@@ -228,13 +260,166 @@ const MonitoringSubdist = {
         this.setKpi('kpiUnmapped', (data.unmappedCount || 0).toLocaleString('id-ID'), 'Belum Mapping');
     },
 
-    /** KPI dihitung ulang dari transaksi detail (per SubDist) */
-    renderDetailKpis: function (rows, totalMatched) {
-        const customers = new Set((rows || []).map(r => r.custNumber).filter(Boolean));
-        const totalRp = (rows || []).reduce((s, r) => s + (Number(r.totalRp) || 0), 0);
-        this.setKpi('kpiTotal', this.formatRp(totalRp), 'Total (Rp) SubDist Ini');
-        this.setKpi('kpiMapped', (totalMatched || rows.length || 0).toLocaleString('id-ID'), 'Transaksi SubDist Ini');
-        this.setKpi('kpiUnmapped', customers.size.toLocaleString('id-ID'), 'Customer');
+    /** KPI dihitung ulang untuk konteks detail: Total / Sebelumnya / Selisih */
+    renderDetailKpis: function (summaryRow, detailRows, totalMatched) {
+        const totalRp = summaryRow
+            ? Number(summaryRow.totalRp) || 0
+            : (detailRows || []).reduce((s, r) => s + (Number(r.totalRp) || 0), 0);
+        const prev = summaryRow ? summaryRow.previousTotalRp : null;
+        const selisih = summaryRow ? summaryRow.selisihRp : null;
+
+        this.setKpi('kpiTotal', this.formatRp(totalRp), 'Total hari ini (Rp)');
+        this.setKpi(
+            'kpiMapped',
+            prev == null ? '—' : this.formatRp(prev),
+            'Sebelumnya (Rp)'
+        );
+
+        const unmappedEl = document.getElementById('kpiUnmapped');
+        if (selisih == null || selisih === '') {
+            this.setKpi('kpiUnmapped', '—', 'Selisih (Rp)');
+            if (unmappedEl) unmappedEl.className = 'fw-bold mb-0';
+        } else {
+            const v = Number(selisih) || 0;
+            const sign = v > 0 ? '+' : '';
+            this.setKpi('kpiUnmapped', sign + this.formatRp(v), 'Selisih (Rp)');
+            if (unmappedEl) {
+                unmappedEl.className = 'fw-bold mb-0 ' +
+                    (v > 0 ? 'text-success' : (v < 0 ? 'text-danger' : 'text-muted'));
+            }
+        }
+
+        this.renderDetailStory(totalRp, prev, selisih, totalMatched, detailRows);
+    },
+
+    renderDetailStory: function (totalRp, prev, selisih, totalMatched, detailRows) {
+        const el = document.getElementById('detailStory');
+        if (!el) return;
+        const trx = totalMatched || (detailRows || []).length || 0;
+        const customers = new Set((detailRows || []).map(r => r.custNumber).filter(Boolean)).size;
+
+        let change = '';
+        if (prev == null || selisih == null) {
+            change = 'Belum ada pembanding file sebelumnya (extract pertama / belum ada snapshot).';
+        } else {
+            const v = Number(selisih) || 0;
+            if (v === 0) {
+                change = `Nilai sama dengan file sebelumnya (${this.formatRp(prev)}).`;
+            } else if (v < 0) {
+                change = `Total <strong class="text-danger">turun ${this.formatRp(Math.abs(v))}</strong> dibanding file sebelumnya (${this.formatRp(prev)} → ${this.formatRp(totalRp)}).`;
+            } else {
+                change = `Total <strong class="text-success">naik ${this.formatRp(v)}</strong> dibanding file sebelumnya (${this.formatRp(prev)} → ${this.formatRp(totalRp)}).`;
+            }
+        }
+
+        el.innerHTML = `${change} · ${trx.toLocaleString('id-ID')} transaksi · ${customers.toLocaleString('id-ID')} customer.`;
+    },
+
+    findSummaryRow: function (branch, code) {
+        const rows = this.mappedRows || [];
+        return rows.find(r =>
+            String(r.branchCode || '') === String(code || '') &&
+            String(r.branchName || '') === String(branch || '')
+        ) || rows.find(r =>
+            (code && String(r.branchCode || '') === String(code)) ||
+            (branch && String(r.branchName || '').toUpperCase() === String(branch).toUpperCase())
+        ) || null;
+    },
+
+    findMappedParent: function (branch, code) {
+        const masters = MappingSubdistStore.load().filter(d => d.parent === 'YA');
+        const codeHit = code
+            ? masters.find(m => String(m.kodeBranch || '').trim() === String(code).trim())
+            : null;
+        if (codeHit) return codeHit;
+        const name = String(branch || '').trim().toUpperCase();
+        return masters.find(m => String(m.branchEpm || '').trim().toUpperCase() === name) || null;
+    },
+
+    renderDetailJenis: function (summaryRow, detailRows) {
+        const body = document.getElementById('tblDetailJenisBody');
+        const bars = document.getElementById('detailJenisBars');
+        if (!body) return;
+
+        const keys = [
+            { key: 'RP_LUMPSUM', label: 'Lumpsum' },
+            { key: 'RP_EDPH_PRIN', label: 'EDPH' },
+            { key: 'RP_PROMOSI', label: 'Promosi' },
+            { key: 'RP_EDHL', label: 'EDHL' }
+        ];
+
+        let totals = { RP_LUMPSUM: 0, RP_EDPH_PRIN: 0, RP_PROMOSI: 0, RP_EDHL: 0 };
+        if (summaryRow && summaryRow.totals) {
+            keys.forEach(k => { totals[k.key] = Number(summaryRow.totals[k.key]) || 0; });
+        } else {
+            (detailRows || []).forEach(r => {
+                const a = r.amounts || {};
+                keys.forEach(k => { totals[k.key] += Number(a[k.key]) || 0; });
+            });
+        }
+
+        const grand = keys.reduce((s, k) => s + totals[k.key], 0) || 1;
+        body.innerHTML = keys.map(k => {
+            const v = totals[k.key];
+            const pct = ((v / grand) * 100).toFixed(1);
+            return `<tr>
+                <td>${k.label}</td>
+                <td class="text-end">${this.formatRp(v)}</td>
+                <td class="text-end">${pct}%</td>
+            </tr>`;
+        }).join('');
+
+        if (bars) {
+            bars.innerHTML = keys.map(k => {
+                const v = totals[k.key];
+                const pct = Math.max(0, Math.min(100, (v / grand) * 100));
+                return `<div class="mb-2">
+                    <div class="d-flex justify-content-between small mb-1">
+                        <span>${k.label}</span><span>${this.formatRp(v)}</span>
+                    </div>
+                    <div class="progress" style="height:8px;">
+                        <div class="progress-bar" role="progressbar" style="width:${pct}%;"></div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+    },
+
+    renderDetailChildren: function (parent) {
+        const body = document.getElementById('tblDetailChildBody');
+        const note = document.getElementById('detailChildNote');
+        if (!body) return;
+
+        if (!parent) {
+            body.innerHTML = '<tr><td colspan="5" class="text-muted text-center">Parent mapping tidak ditemukan untuk branch ini.</td></tr>';
+            return;
+        }
+
+        const children = MappingSubdistStore.getChildren(parent) || [];
+        if (note) {
+            note.textContent = children.length
+                ? `Grup "${parent.namaGroup || parent.namaKmmd}" · ${children.length} child di Master Mapping. Nilai pecahan per child tidak selalu ada di CSV (sering agregat per branch).`
+                : `Parent "${parent.namaKmmd}" belum punya child di mapping.`;
+        }
+
+        if (!children.length) {
+            body.innerHTML = '<tr><td colspan="5" class="text-muted text-center">Belum ada child.</td></tr>';
+            return;
+        }
+
+        const esc = MappingSubdistStore.esc;
+        body.innerHTML = children.map(c => {
+            const st = c.active === false
+                ? '<span class="badge bg-label-danger">Non Active</span>'
+                : '<span class="badge bg-label-success">Active</span>';
+            return `<tr>
+                <td><code>${esc(c.kodeKmmd)}</code></td>
+                <td>${esc(c.namaKmmd)}</td>
+                <td>${esc(c.titik)}</td>
+                <td>${esc(c.branchEpm)}</td>
+                <td>${st}</td>
+            </tr>`;
+        }).join('');
     },
 
     applySummaryFilter: function () {
@@ -302,8 +487,17 @@ const MonitoringSubdist = {
     showSummaryView: function () {
         document.getElementById('viewSummary').style.display = '';
         document.getElementById('viewDetail').style.display = 'none';
+        const story = document.getElementById('detailStory');
+        if (story) story.innerHTML = '';
+        const unmappedEl = document.getElementById('kpiUnmapped');
+        if (unmappedEl) unmappedEl.className = 'fw-bold mb-0';
         this.renderKpis(this.summaryKpis || null);
         this.scheduleAdjust(this.summaryTable);
+        // reset tab ke transaksi
+        const tabTrx = document.getElementById('tab-detail-trx');
+        if (tabTrx && window.bootstrap && bootstrap.Tab) {
+            bootstrap.Tab.getOrCreateInstance(tabTrx).show();
+        }
     },
 
     openDetail: async function (branch, code, subdistLabel) {
@@ -316,6 +510,11 @@ const MonitoringSubdist = {
             : (branch || code || '—');
         document.getElementById('detailTitle').textContent = titleName;
         document.getElementById('detailHint').textContent = 'Memuat transaksi...';
+        const story = document.getElementById('detailStory');
+        if (story) story.textContent = '';
+
+        const summaryRow = this.findSummaryRow(branch, code);
+        const parent = this.findMappedParent(branch, code);
 
         try {
             const qs = new URLSearchParams();
@@ -324,20 +523,26 @@ const MonitoringSubdist = {
             qs.set('limit', '8000');
             const data = await this.api('/api/claims/detail?' + qs.toString());
             const n = data.totalMatched || 0;
+            const childCount = parent ? (MappingSubdistStore.getChildren(parent) || []).length : 0;
             const hintParts = [
                 code || '—',
                 branch || '—',
+                childCount ? `${childCount} child` : null,
                 `${n.toLocaleString('id-ID')} transaksi`
-            ];
+            ].filter(Boolean);
             if (data.count < data.totalMatched) {
                 hintParts.push(`tampil ${data.count}`);
             }
             document.getElementById('detailHint').textContent = hintParts.join(' · ');
-            this.renderDetailKpis(data.detail || [], data.totalMatched);
+            this.renderDetailKpis(summaryRow, data.detail || [], data.totalMatched);
+            this.renderDetailJenis(summaryRow, data.detail || []);
+            this.renderDetailChildren(parent);
             this.renderDetail(data.detail || []);
         } catch (e) {
             document.getElementById('detailHint').textContent = e.message || 'Gagal load detail';
-            this.renderDetailKpis([], 0);
+            this.renderDetailKpis(summaryRow, [], 0);
+            this.renderDetailJenis(summaryRow, []);
+            this.renderDetailChildren(parent);
             this.renderDetail([]);
         }
     },

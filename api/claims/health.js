@@ -1,4 +1,4 @@
-const { sendJson, cors } = require('./_lib/store');
+const { sendJson, cors, hasBlobToken } = require('./_lib/store');
 
 module.exports = async function handler(req, res) {
   cors(res);
@@ -9,6 +9,12 @@ module.exports = async function handler(req, res) {
   return sendJson(res, 200, {
     ok: true,
     service: 'claim-api-vercel',
-    mode: 'webdav+blob'
+    mode: 'webdav+blob',
+    blobConfigured: hasBlobToken(),
+    webdavConfigured: Boolean(
+      process.env.CLAIM_WEBDAV_URL &&
+      process.env.CLAIM_WEBDAV_USER &&
+      process.env.CLAIM_WEBDAV_PASS
+    )
   });
 };

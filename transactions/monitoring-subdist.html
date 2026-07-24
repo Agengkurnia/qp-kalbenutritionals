@@ -112,28 +112,83 @@
                 <div>
                     <h5 class="mb-0" id="detailTitle">Detail</h5>
                     <small class="text-muted" id="detailHint"></small>
+                    <p class="mb-0 mt-2 small" id="detailStory"></p>
                 </div>
                 <button type="button" id="btnBackSummary" class="btn btn-outline-secondary btn-sm">
                     <i class="fas fa-arrow-left me-1"></i> Kembali ke ringkasan
                 </button>
             </div>
             <div class="card-body">
-                <div class="card-datatable table-responsive">
-                    <table class="table table-bordered table-hover table-sm align-middle w-100 df-dt-grid" id="tblClaimDetail" style="width:100%">
-                        <thead>
-                            <tr>
-                                <th>Tgl Trx</th>
-                                <th>No Trx</th>
-                                <th>Cust No</th>
-                                <th>Cust Name</th>
-                                <th>Item</th>
-                                <th>Nama Item</th>
-                                <th>Surat Referensi</th>
-                                <th>Total (Rp)</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
+                <ul class="nav nav-tabs mb-3" role="tablist">
+                    <li class="nav-item">
+                        <button type="button" class="nav-link active" id="tab-detail-trx" data-bs-toggle="tab"
+                            data-bs-target="#pane-detail-trx" role="tab">Transaksi</button>
+                    </li>
+                    <li class="nav-item">
+                        <button type="button" class="nav-link" id="tab-detail-jenis" data-bs-toggle="tab"
+                            data-bs-target="#pane-detail-jenis" role="tab">Per jenis (Rp)</button>
+                    </li>
+                    <li class="nav-item">
+                        <button type="button" class="nav-link" id="tab-detail-child" data-bs-toggle="tab"
+                            data-bs-target="#pane-detail-child" role="tab">Child mapping</button>
+                    </li>
+                </ul>
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="pane-detail-trx" role="tabpanel">
+                        <div class="card-datatable table-responsive">
+                            <table class="table table-bordered table-hover table-sm align-middle w-100 df-dt-grid" id="tblClaimDetail" style="width:100%">
+                                <thead>
+                                    <tr>
+                                        <th>Tgl Trx</th>
+                                        <th>No Trx</th>
+                                        <th>Cust No</th>
+                                        <th>Cust Name</th>
+                                        <th>Item</th>
+                                        <th>Nama Item</th>
+                                        <th>Surat Referensi</th>
+                                        <th>Total (Rp)</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="pane-detail-jenis" role="tabpanel">
+                        <p class="text-muted small mb-3">Komposisi nilai SubDist ini dari file terkini (agregat baris detail).</p>
+                        <div class="card-datatable table-responsive">
+                            <table class="table table-bordered table-sm align-middle w-100 df-dt-grid" id="tblDetailJenis">
+                                <thead>
+                                    <tr>
+                                        <th>Jenis</th>
+                                        <th class="text-end">Nilai (Rp)</th>
+                                        <th class="text-end">Porsi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tblDetailJenisBody"></tbody>
+                            </table>
+                        </div>
+                        <div class="mt-3" id="detailJenisBars"></div>
+                    </div>
+                    <div class="tab-pane fade" id="pane-detail-child" role="tabpanel">
+                        <p class="text-muted small mb-3" id="detailChildNote">
+                            Daftar child dari Master Mapping Subdist. Nilai per child tidak selalu ada di CSV EPM
+                            (sering agregat per branch) — tab ini membantu lihat struktur grup.
+                        </p>
+                        <div class="card-datatable table-responsive">
+                            <table class="table table-bordered table-sm align-middle w-100 df-dt-grid" id="tblDetailChild">
+                                <thead>
+                                    <tr>
+                                        <th>Kode KMMD</th>
+                                        <th>Nama Child</th>
+                                        <th>Titik</th>
+                                        <th>Branch EPM</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tblDetailChildBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
