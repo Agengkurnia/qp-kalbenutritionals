@@ -1,0 +1,32 @@
+/* KICAO DF prototype — thin overrides */
+body.skin-green .main-header .logo {
+    font-family: 'Kalbe Geometric', 'Source Sans Pro', sans-serif;
+}
+.content-header > h1 > small {
+    font-size: 14px;
+    color: #888;
+}
+.mkpp-proto-note {
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: #fcf8e3;
+    border: 1px solid #faebcc;
+    border-radius: 3px;
+    color: #8a6d3b;
+}
+#lblStatusFlow {
+    font-weight: 700;
+    color: #3c8dbc;
+}
+#lblStatusFlow.status-submitted {
+    color: #00a65a;
+}
+.row-form {
+    margin-bottom: 8px;
+}
+#tblFindMkpp tbody tr {
+    cursor: pointer;
+}
+#tblFindMkpp tbody tr:hover {
+    background: #f5f5f5;
+}

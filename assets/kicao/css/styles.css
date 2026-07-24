@@ -1,0 +1,64 @@
+﻿@charset "UTF-8";
+
+
+
+table { 
+}
+.legend table {
+  width: auto;
+}
+table tr td { 
+  line-height: 20px;
+}
+table tr td i.fa {
+  font-size: 13px;
+}
+.table {
+  margin-bottom: 0px;
+  border:none;
+}
+.table tr > th {
+  border-top: 0px; 
+  font-size: 10px;
+  text-transform: uppercase;
+} 
+.table tbody.alt td.alt{
+    background: #C6FFC2; 
+}
+.table tbody td{
+    background: #DFFFDE; 
+}
+.table thead tr{
+    background: #36752D;
+    color: #FFFFFF;
+} 
+.table-striped > tbody > tr:nth-child(odd) > td {
+  background-color: #C6FFC2; 
+}
+.table-bordered {
+  border: 0px !important;
+}
+.table-bordered tr > th,
+.table-bordered tr > td {
+  border-left: 0px !important;
+  border-right: 1px solid #e5e5e5 !important; 
+}
+.table-bordered tr > th:last-child,
+.table-bordered tr > td:last-child {
+  border-right: 0px !important;
+}
+.table-bordered tr:last-child > th,
+.table-bordered tr:last-child > td {
+  border-bottom: 0px !important;
+}
+.table th,
+.table td {
+  vertical-align: middle !important;
+  line-height: 20px !important;
+  border-top: 1px solid #e5e5e5 !important;
+}
+.table th input,
+.table td input {
+  margin: 0px;
+}
+

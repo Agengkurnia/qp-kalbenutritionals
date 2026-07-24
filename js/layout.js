@@ -78,6 +78,47 @@ class Layout {
                 }
             }
 
+            /* Switch template pinned near sidebar bottom (avoid 2nd .menu-inner — Vuexy overlaps)
+               Do NOT set position on #layout-menu — Vuexy needs position:fixed; absolute
+               children still position against that fixed aside. */
+            #layout-menu .df-switch-template {
+                position: absolute;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                z-index: 2;
+                padding: 0.75rem 1rem 1rem;
+                border-top: 1px solid rgba(67, 89, 113, 0.12);
+                background: var(--bs-menu-bg, #fff);
+            }
+            #layout-menu .df-switch-template .df-switch-label {
+                display: block;
+                font-size: 0.6875rem;
+                font-weight: 600;
+                letter-spacing: .04em;
+                text-transform: uppercase;
+                color: #a1acb8;
+                margin-bottom: 0.35rem;
+                padding-left: 0.25rem;
+            }
+            #layout-menu .df-switch-template a {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                padding: 0.5rem 0.75rem;
+                border-radius: 0.375rem;
+                color: #697a8d;
+                text-decoration: none;
+                font-weight: 500;
+            }
+            #layout-menu .df-switch-template a:hover {
+                background: rgba(67, 89, 113, 0.06);
+                color: #566a7f;
+            }
+            #layout-menu > .menu-inner {
+                padding-bottom: 5.5rem !important;
+            }
+
             /* DF DataTables — grid */
             table.df-dt-grid {
                 border-collapse: collapse !important;
@@ -194,15 +235,17 @@ class Layout {
                                     <div data-i18n="Monitoring SubDist">Monitoring SubDist</div>
                                 </a>
                             </li>
-                            <li class="menu-item">
-                                <a href="${this.basePath}transactions/memo-qp.html" class="menu-link">
-                                    <div data-i18n="Memo QP">Memo QP</div>
-                                </a>
-                            </li>
                         </ul>
                     </li>
 
                 </ul>
+                <div class="df-switch-template">
+                    <span class="df-switch-label">Switch Template</span>
+                    <a href="${this.basePath}kicao/mkpp.html">
+                        <i class="fas fa-exchange-alt"></i>
+                        <span>Ke KICAO KDS</span>
+                    </a>
+                </div>
             </aside>
         `;
 

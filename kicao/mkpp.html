@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Master KPP | KICAO KDS | Prototype DF</title>
+    <meta content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" name="viewport">
+    <link rel="icon" href="../assets/kicao/img/favicon.ico" type="image/x-icon">
+
+    <link rel="stylesheet" href="../assets/kicao/fonts/KalbeFont/font.css">
+    <link rel="stylesheet" href="../assets/kicao/css/bootstrap.min.css">
+    <link rel="stylesheet" href="../assets/kicao/css/fontawesome.min.css">
+    <link rel="stylesheet" href="../assets/kicao/css/ionicons.min.css">
+    <link rel="stylesheet" href="../assets/kicao/css/AdminLTE.min.css">
+    <link rel="stylesheet" href="../assets/kicao/css/skins/_all-skins.min.css">
+    <link rel="stylesheet" href="../assets/kicao/css/styles.css">
+    <link rel="stylesheet" href="css/kicao-proto.css">
+</head>
+<body class="hold-transition skin-green sidebar-mini">
+    <div id="kicaoPageContent">
+        <section class="content-header">
+            <h1>
+                Master KPP
+                <small>Prototype · MKPP Type DF</small>
+            </h1>
+        </section>
+
+        <section class="content">
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="box box-primary">
+                        <div class="box-header with-border text-right">
+                            <a id="btnFind" class="btn btn-success"><i class="fa fa-search"></i> Find</a>
+                            <a id="btnSave" class="btn btn-success"><i class="fa fa-floppy-o"></i> Save</a>
+                            <a id="btnNew" class="btn btn-warning"><i class="fa fa-refresh"></i> New</a>
+                            <a id="btnSubmit" class="btn btn-success"><i class="fa fa-send"></i> Submit</a>
+                            <a id="btnPrintout" class="btn btn-info"><i class="fa fa-print"></i> Print</a>
+                        </div>
+                        <div class="box-body">
+                            <input type="hidden" id="txtHiddenId" value="">
+
+                            <div class="row">
+                                <div class="row-form">
+                                    <div class="col-md-2"><label class="control-label">MKPP Doc No</label></div>
+                                    <div class="col-md-4">
+                                        <input type="text" class="form-control" id="txtDocNo" disabled>
+                                    </div>
+                                    <div class="col-md-2"><label class="control-label">Date</label></div>
+                                    <div class="col-md-4">
+                                        <input type="text" class="form-control" style="width:120px;" id="dtmDate" disabled>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="row-form">
+                                    <div class="col-md-2"><label class="control-label">MKPP Parent Doc No</label></div>
+                                    <div class="col-md-4">
+                                        <div class="input-group" style="width:100%">
+                                            <div class="input-group-btn">
+                                                <button type="button" class="btn btn-danger" id="btnLOVRefDocNo" title="Phase 2"><i class="fa fa-search"></i></button>
+                                            </div>
+                                            <input type="text" class="form-control" id="txtRefDocNo">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2"><label class="control-label">Status</label></div>
+                                    <div class="col-md-4">
+                                        <label id="lblStatusFlow" class="control-label">Draft</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="row-form">
+                                    <div class="col-md-2"><label class="control-label">Group Account</label></div>
+                                    <div class="col-md-4">
+                                        <div class="input-group" style="width:100%">
+                                            <div class="input-group-btn">
+                                                <button type="button" class="btn btn-danger" id="btnLOVGroupAccount"><i class="fa fa-search"></i></button>
+                                            </div>
+                                            <input type="text" class="form-control" id="txtGroupAccount">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2"><label class="control-label">ONO Doc No</label></div>
+                                    <div class="col-md-4">
+                                        <input type="text" class="form-control" id="txtDocNoONO">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="row-form">
+                                    <div class="col-md-2"><label class="control-label">Budget Type</label></div>
+                                    <div class="col-md-4">
+                                        <div class="input-group" style="width:100%">
+                                            <div class="input-group-btn">
+                                                <button type="button" class="btn btn-danger" id="btnLOVBudgetType"><i class="fa fa-search"></i></button>
+                                            </div>
+                                            <input type="text" class="form-control" id="txtBudgetType" value="DF — Development Fund">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2"><label class="control-label">Posting Date</label></div>
+                                    <div class="col-md-4">
+                                        <input type="date" id="txtdtPostingDate" class="form-control" style="width:160px;">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="row-form">
+                                    <div class="col-md-2"><label class="control-label">Program Description</label></div>
+                                    <div class="col-md-10">
+                                        <textarea id="txtProgramDesc" class="form-control" rows="4" maxlength="4000" placeholder="Deskripsi program / activity (prototype — tanpa CKEditor)"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mkpp-proto-note">
+                                <strong>Phase 2:</strong> tab Activity / Budget / Supplier / Subbrand (seperti production KDS) belum di-port.
+                                Fase 1 fokus shell visual + header MKPP Type DF + mock Find/Save/New/Submit.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="../assets/kicao/js/jquery.min.js"></script>
+    <script src="../assets/kicao/js/bootstrap.min.js"></script>
+    <script src="../assets/kicao/js/app.min.js"></script>
+    <script src="../assets/kicao/js/bootbox.min.js"></script>
+    <script src="js/KicaoLayout.js"></script>
+    <script src="js/MkppPrototype.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            KicaoLayout.init({ active: 'mkpp' });
+            MkppPrototype.init();
+        });
+    </script>
+</body>
+</html>

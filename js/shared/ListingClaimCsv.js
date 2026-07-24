@@ -3,7 +3,7 @@
  * Same shape as Monitoring Claim EPM extract.
  */
 const ListingClaimCsv = {
-    AMOUNT_FIELDS: ['RP_LUMPSUM', 'RP_EDPH_PRIN', 'RP_PROMOSI', 'RP_EDHL', 'RP_BONUS'],
+    AMOUNT_FIELDS: ['RP_LUMPSUM', 'RP_EDPH_PRIN', 'RP_EDPF_PRIN', 'RP_PROMOSI', 'RP_EDHL', 'RP_BONUS'],
 
     /**
      * @param {string} text raw CSV
@@ -41,16 +41,35 @@ const ListingClaimCsv = {
         return sum;
     },
 
+    MON_MAP: {
+        JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6,
+        JUL: 7, AUG: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12
+    },
+
     /**
      * Normalize TRX_DATE-like values to YYYY-MM-DD if possible.
+     * Supports: yyyy-mm-dd, dd/mm/yyyy, yyyymmdd, Oracle DD-MON-YY / DD-MON-YYYY (e.g. 10-APR-26).
      */
     normalizeTrxDate: function (v) {
         if (!v) return '';
-        const s = String(v).trim();
+        const s = String(v).trim().toUpperCase();
         // yyyy-mm-dd
         if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
-        // dd/mm/yyyy or dd-mm-yyyy
-        const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+        // Oracle: 10-APR-26 or 10-APR-2026
+        const ora = s.match(/^(\d{1,2})-([A-Z]{3})-(\d{2}|\d{4})$/);
+        if (ora) {
+            const day = ora[1].padStart(2, '0');
+            const mon = this.MON_MAP[ora[2]];
+            if (!mon) return '';
+            let year = parseInt(ora[3], 10);
+            if (ora[3].length === 2) {
+                // 00–69 → 2000–2069, 70–99 → 1970–1999 (common Oracle window)
+                year = year < 70 ? 2000 + year : 1900 + year;
+            }
+            return year + '-' + String(mon).padStart(2, '0') + '-' + day;
+        }
+        // dd/mm/yyyy or dd-mm-yyyy (numeric month)
+        const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
         if (m) {
             return m[3] + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0');
         }
@@ -58,7 +77,7 @@ const ListingClaimCsv = {
         if (/^\d{8}$/.test(s)) {
             return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8);
         }
-        return s;
+        return '';
     },
 
     /**
