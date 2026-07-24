@@ -1,7 +1,8 @@
 /**
  * Shared helpers for Claim EPM API (Vercel)
+ * Blob store project ini = private → put/get harus access: 'private'
  */
-const { put, list } = require('@vercel/blob');
+const { put, get } = require('@vercel/blob');
 const fs = require('fs');
 const path = require('path');
 
@@ -9,6 +10,9 @@ const AMOUNT_FIELDS = ['RP_LUMPSUM', 'RP_EDPH_PRIN', 'RP_PROMOSI', 'RP_EDHL', 'R
 const BLOB_LATEST = 'claims/latest.json';
 const BLOB_META = 'claims/meta.json';
 const BLOB_PREVIOUS = 'claims/previous-summary.json';
+const BLOB_ACCESS = (process.env.CLAIM_BLOB_ACCESS || 'private').toLowerCase() === 'public'
+  ? 'public'
+  : 'private';
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -176,21 +180,51 @@ function hasBlobToken() {
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 }
 
-async function findBlobUrl(pathname) {
+async function streamToString(stream) {
+  if (!stream) return '';
+  if (typeof stream.getReader === 'function') {
+    const reader = stream.getReader();
+    const chunks = [];
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(Buffer.from(value));
+    }
+    return Buffer.concat(chunks).toString('utf8');
+  }
+  const chunks = [];
+  for await (const chunk of stream) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks).toString('utf8');
+}
+
+async function loadJsonFromBlob(pathname) {
   if (!hasBlobToken()) return null;
-  const result = await list({ prefix: pathname, limit: 20 });
-  const hit = (result.blobs || []).find((b) => b.pathname === pathname || b.pathname.endsWith('/' + pathname));
-  return hit ? hit.url : null;
+  try {
+    const result = await get(pathname, { access: BLOB_ACCESS });
+    if (!result || result.statusCode !== 200 || !result.stream) return null;
+    const text = await streamToString(result.stream);
+    if (!text) return null;
+    return JSON.parse(text);
+  } catch (e) {
+    // Belum ada file / pathname not found → fallback lokal
+    return null;
+  }
+}
+
+async function putJsonBlob(pathname, data) {
+  await put(pathname, JSON.stringify(data), {
+    access: BLOB_ACCESS,
+    addRandomSuffix: false,
+    allowOverwrite: true,
+    contentType: 'application/json'
+  });
 }
 
 async function loadLatestPayload() {
-  if (hasBlobToken()) {
-    const url = await findBlobUrl(BLOB_LATEST);
-    if (url) {
-      const res = await fetch(url);
-      if (res.ok) return await res.json();
-    }
-  }
+  const fromBlob = await loadJsonFromBlob(BLOB_LATEST);
+  if (fromBlob) return fromBlob;
   const p = localLatestPath();
   if (fs.existsSync(p)) {
     return JSON.parse(fs.readFileSync(p, 'utf8'));
@@ -199,13 +233,8 @@ async function loadLatestPayload() {
 }
 
 async function loadMeta() {
-  if (hasBlobToken()) {
-    const url = await findBlobUrl(BLOB_META);
-    if (url) {
-      const res = await fetch(url);
-      if (res.ok) return await res.json();
-    }
-  }
+  const fromBlob = await loadJsonFromBlob(BLOB_META);
+  if (fromBlob) return fromBlob;
   const p = localMetaPath();
   if (fs.existsSync(p)) {
     return JSON.parse(fs.readFileSync(p, 'utf8'));
@@ -255,13 +284,8 @@ function enrichSummaryWithPrevious(summary, previous) {
 }
 
 async function loadPreviousSummary() {
-  if (hasBlobToken()) {
-    const url = await findBlobUrl(BLOB_PREVIOUS);
-    if (url) {
-      const res = await fetch(url);
-      if (res.ok) return await res.json();
-    }
-  }
+  const fromBlob = await loadJsonFromBlob(BLOB_PREVIOUS);
+  if (fromBlob) return fromBlob;
   const p = localPreviousPath();
   if (fs.existsSync(p)) {
     return JSON.parse(fs.readFileSync(p, 'utf8'));
@@ -286,26 +310,11 @@ async function savePayload(payload) {
   // Rotasi: latest lama → previous
   const existing = await loadLatestPayload();
   if (existing && existing.summary && existing.summary.length) {
-    await put(BLOB_PREVIOUS, JSON.stringify(snapshotFromPayload(existing)), {
-      access: 'public',
-      addRandomSuffix: false,
-      allowOverwrite: true,
-      contentType: 'application/json'
-    });
+    await putJsonBlob(BLOB_PREVIOUS, snapshotFromPayload(existing));
   }
 
-  await put(BLOB_LATEST, JSON.stringify(payload), {
-    access: 'public',
-    addRandomSuffix: false,
-    allowOverwrite: true,
-    contentType: 'application/json'
-  });
-  await put(BLOB_META, JSON.stringify(meta), {
-    access: 'public',
-    addRandomSuffix: false,
-    allowOverwrite: true,
-    contentType: 'application/json'
-  });
+  await putJsonBlob(BLOB_LATEST, payload);
+  await putJsonBlob(BLOB_META, meta);
   return meta;
 }
 

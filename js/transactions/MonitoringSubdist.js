@@ -227,6 +227,19 @@ const MonitoringSubdist = {
                 } else {
                     MappingSubdistStore.toast('warning', msg);
                 }
+            } else if (/private store|public access/i.test(msg)) {
+                await MappingSubdistStore.ensureSwal();
+                if (typeof Swal !== 'undefined') {
+                    await Swal.fire({
+                        icon: 'error',
+                        title: 'Blob store private',
+                        html: 'Store Blob kamu <b>private</b>, sedangkan kode lama memakai public access.<br><br>' +
+                            'Sudah diperbaiki di kode (access private). <b>Push & redeploy</b>, lalu Refresh lagi.',
+                        confirmButtonText: 'Mengerti'
+                    });
+                } else {
+                    MappingSubdistStore.toast('error', msg);
+                }
             } else {
                 MappingSubdistStore.toast('error', msg);
             }
