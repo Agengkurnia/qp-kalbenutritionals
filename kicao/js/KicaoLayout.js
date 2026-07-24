@@ -115,7 +115,7 @@ const KicaoLayout = {
             '</a></li>' +
             '</ul>' +
             '<div class="df-switch-template">' +
-            '<span class="df-switch-label">Switch Template</span>' +
+            '<span class="df-switch-label">Switch Prototype</span>' +
             '<a href="' + base + 'index.html"><i class="fa fa-exchange"></i> <span>Ke MAVEN</span></a>' +
             '</div>' +
             '</section></aside>'

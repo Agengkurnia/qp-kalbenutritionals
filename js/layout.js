@@ -240,7 +240,7 @@ class Layout {
 
                 </ul>
                 <div class="df-switch-template">
-                    <span class="df-switch-label">Switch Template</span>
+                    <span class="df-switch-label">Switch Prototype</span>
                     <a href="${this.basePath}kicao/mkpp.html">
                         <i class="fas fa-exchange-alt"></i>
                         <span>Ke KICAO KDS</span>
