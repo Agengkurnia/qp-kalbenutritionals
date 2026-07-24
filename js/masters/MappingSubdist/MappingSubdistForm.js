@@ -92,6 +92,9 @@ const MappingSubdistForm = {
         if (chkAll) {
             chkAll.addEventListener('change', (e) => this.toggleSelectAllOrphans(e.target.checked));
         }
+        document.querySelectorAll('input[name="childPeriodMode"]').forEach(el => {
+            el.addEventListener('change', () => this.syncChildPeriodFields());
+        });
 
         const btnConfirmAct = document.getElementById('btnConfirmPickActivities');
         if (btnConfirmAct) {
@@ -101,6 +104,23 @@ const MappingSubdistForm = {
         if (chkActAll) {
             chkActAll.addEventListener('change', (e) => this.toggleSelectAllActivities(e.target.checked));
         }
+    },
+
+    syncChildPeriodFields: function () {
+        const hist = document.getElementById('childPeriodHistorical');
+        const box = document.getElementById('childPeriodHistoricalFields');
+        if (!box) return;
+        const isHist = hist && hist.checked;
+        box.classList.toggle('d-none', !isHist);
+    },
+
+    fillHistoricalMonthSelect: function () {
+        const sel = document.getElementById('childPeriodMonth');
+        if (!sel) return;
+        const opts = MappingSubdistStore.getHistoricalMonthOptions();
+        sel.innerHTML = opts.map(o =>
+            '<option value="' + o.value + '">' + MappingSubdistStore.esc(o.label) + '</option>'
+        ).join('');
     },
 
     applyBosnetLockUI: function () {
@@ -507,15 +527,190 @@ const MappingSubdistForm = {
             $('#tblChild').off('click', '.btn-unlink-child').on('click', '.btn-unlink-child', async function () {
                 const id = this.getAttribute('data-id');
                 const name = this.getAttribute('data-name') || id;
-                const ok = await MappingSubdistStore.confirm(
-                    `Lepas child "${name}" dari parent ini?`
-                );
-                if (!ok) return;
-                MappingSubdistStore.unlinkChild(id);
-                MappingSubdistStore.toast('success', 'Child dilepas');
-                self.refreshChildSection();
+                const child = MappingSubdistStore.getById(id);
+                const parent = MappingSubdistStore.getById(self.itemId) || self.getFormSnapshot();
+                await self.handleUnlinkChild(parent, child, name);
             });
         }
+    },
+
+    /**
+     * Lepas child: simple confirm if no BI impact; else wizard bulan dari–sampai + impact.
+     */
+    handleUnlinkChild: async function (parent, child, displayName) {
+        if (!child) {
+            MappingSubdistStore.toast('error', 'Child tidak ditemukan');
+            return;
+        }
+        const parentKode = parent.id || parent.kodeKmmd;
+        const childKode = child.id || child.kodeKmmd;
+        const months = MappingSubdistStore.getUnmapMonthOptions(child);
+        const fromYm = months.length ? months[0].value : MockBiLedger.currentYm();
+        const toYm = months.length ? months[months.length - 1].value : MockBiLedger.currentYm();
+
+        let impact = { hasImpact: false, correctionAmount: 0 };
+        if (typeof MockBiLedger !== 'undefined') {
+            impact = MockBiLedger.getImpactForChildByMonths(parentKode, childKode, fromYm, toYm);
+        }
+
+        if (!impact.hasImpact || !impact.correctionAmount) {
+            const ok = await MappingSubdistStore.confirm(
+                `Lepas child "${displayName}" dari parent ini?`
+            );
+            if (!ok) return;
+            MappingSubdistStore.unlinkChild(childKode);
+            MappingSubdistStore.toast('success', 'Child dilepas');
+            this.refreshChildSection();
+            return;
+        }
+
+        if (!MappingSubdistStore.canCorrectBi()) {
+            await MappingSubdistStore.ensureSwal();
+            if (typeof Swal !== 'undefined') {
+                await Swal.fire({
+                    icon: 'warning',
+                    title: 'Perlu koreksi BI',
+                    html: 'Child ini punya dampak transaksi injected.<br>Role Anda tidak boleh menjalankan koreksi BI. Minta <b>Administrator</b> atau <b>CCD / FA</b>.',
+                    confirmButtonText: 'Mengerti'
+                });
+            }
+            return;
+        }
+
+        const result = await this.runUnmapCorrectionWizard(parent, child, displayName, months);
+        if (!result) return;
+        MappingSubdistStore.unlinkChild(childKode);
+        MappingSubdistStore.toast('success', 'Child dilepas & koreksi BI (mock) dicatat');
+        this.refreshChildSection();
+    },
+
+    runUnmapCorrectionWizard: async function (parent, child, displayName, months) {
+        await MappingSubdistStore.ensureSwal();
+        const today = MappingSubdistStore.todayWib();
+        const opts = Array.isArray(months) && months.length
+            ? months
+            : MappingSubdistStore.getUnmapMonthOptions(child);
+        const defaultFrom = opts[0] ? opts[0].value : MockBiLedger.currentYm();
+        const defaultTo = opts[opts.length - 1] ? opts[opts.length - 1].value : defaultFrom;
+
+        if (typeof Swal === 'undefined') {
+            const ok = window.confirm('Lepas + koreksi BI untuk ' + displayName + '?');
+            if (!ok) return null;
+            return MappingSubdistStore.applyUnmapCorrection({
+                parentKode: parent.id || parent.kodeKmmd,
+                childKode: child.id || child.kodeKmmd,
+                fromYm: defaultFrom,
+                toYm: defaultTo,
+                acknowledgeMines: true
+            });
+        }
+
+        const optionHtml = opts.map(m =>
+            '<option value="' + m.value + '">' + MappingSubdistStore.esc(m.label) + '</option>'
+        ).join('');
+
+        const step1 = await Swal.fire({
+            title: 'Lepas child — periode koreksi',
+            html:
+                '<p class="text-start mb-2">Child: <b>' + MappingSubdistStore.esc(displayName) + '</b></p>' +
+                '<p class="text-start small mb-2">Tanggal efektif lepas: <b>' + today + '</b> (hari ini, fixed)</p>' +
+                '<div class="text-start">' +
+                '<label class="form-label">Bulan dari</label>' +
+                '<select id="swalFromYm" class="form-select mb-2">' + optionHtml + '</select>' +
+                '<label class="form-label">Bulan sampai</label>' +
+                '<select id="swalToYm" class="form-select">' + optionHtml + '</select>' +
+                '</div>',
+            showCancelButton: true,
+            confirmButtonText: 'Lanjut preview',
+            cancelButtonText: 'Batal',
+            didOpen: () => {
+                const f = document.getElementById('swalFromYm');
+                const t = document.getElementById('swalToYm');
+                if (f) f.value = defaultFrom;
+                if (t) t.value = defaultTo;
+            },
+            preConfirm: () => {
+                const fromYm = document.getElementById('swalFromYm').value;
+                const toYm = document.getElementById('swalToYm').value;
+                if (!fromYm || !toYm) {
+                    Swal.showValidationMessage('Bulan wajib dipilih');
+                    return false;
+                }
+                if (fromYm > toYm) {
+                    Swal.showValidationMessage('Bulan dari tidak boleh setelah sampai');
+                    return false;
+                }
+                return { fromYm: fromYm, toYm: toYm };
+            },
+            customClass: {
+                confirmButton: 'btn btn-primary me-2',
+                cancelButton: 'btn btn-label-secondary'
+            },
+            buttonsStyling: false
+        });
+
+        if (!step1.isConfirmed || !step1.value) return null;
+        const monthsPick = step1.value;
+        const parentKode = parent.id || parent.kodeKmmd;
+        const childKode = child.id || child.kodeKmmd;
+        const impact = MockBiLedger.getImpactForChildByMonths(
+            parentKode, childKode, monthsPick.fromYm, monthsPick.toYm
+        );
+        const fmt = (n) => MockBiLedger.formatRp(n);
+        const minesHtml = impact.willGoNegative
+            ? '<div class="alert alert-danger text-start py-2">Budget akan <b>mines</b> (proyeksi sisa ' +
+              fmt(impact.projectedSisa) + '). Centang acknowledge untuk lanjut.</div>' +
+              '<label class="form-check text-start"><input type="checkbox" class="form-check-input" id="swalAckMines"> ' +
+              '<span class="form-check-label">Saya mengerti budget akan mines</span></label>'
+            : '<div class="alert alert-success text-start py-2 mb-0">Proyeksi sisa aman (' + fmt(impact.projectedSisa) + ').</div>';
+
+        const step2 = await Swal.fire({
+            title: 'Preview impact koreksi',
+            html:
+                '<div class="text-start">' +
+                '<p>Efektif lepas: <b>' + today + '</b></p>' +
+                '<p>Bulan: <b>' + MockBiLedger.formatYmLabel(monthsPick.fromYm) + '</b> s/d <b>' +
+                MockBiLedger.formatYmLabel(monthsPick.toYm) + '</b></p>' +
+                '<p>Nilai dikoreksi (potong): <b>' + fmt(impact.correctionAmount) + '</b></p>' +
+                '<p>Sisa budget sekarang: ' + fmt(impact.budget.sisa) + '</p>' +
+                '<p class="small text-muted">' + (impact.lines.length || 0) + ' baris ledger terkait</p>' +
+                minesHtml +
+                '</div>',
+            showCancelButton: true,
+            confirmButtonText: 'Ya, koreksi & lepas',
+            cancelButtonText: 'Batal',
+            preConfirm: () => {
+                if (impact.willGoNegative) {
+                    const ack = document.getElementById('swalAckMines');
+                    if (!ack || !ack.checked) {
+                        Swal.showValidationMessage('Acknowledge mines wajib');
+                        return false;
+                    }
+                }
+                return true;
+            },
+            customClass: {
+                confirmButton: 'btn btn-danger me-2',
+                cancelButton: 'btn btn-label-secondary'
+            },
+            buttonsStyling: false
+        });
+
+        if (!step2.isConfirmed) return null;
+
+        const applied = MappingSubdistStore.applyUnmapCorrection({
+            parentKode: parentKode,
+            childKode: childKode,
+            fromYm: monthsPick.fromYm,
+            toYm: monthsPick.toYm,
+            acknowledgeMines: true
+        });
+
+        if (!applied.ok) {
+            await Swal.fire({ icon: 'error', title: 'Koreksi gagal', text: applied.message || 'Gagal' });
+            return null;
+        }
+        return applied;
     },
 
     openPickChildModal: function () {
@@ -537,6 +732,12 @@ const MappingSubdistForm = {
 
         const parent = this.getFormSnapshot();
         this.renderOrphanTable(parent);
+        this.fillHistoricalMonthSelect();
+        const cur = document.getElementById('childPeriodCurrent');
+        if (cur) cur.checked = true;
+        const csv = document.getElementById('childPeriodCsv');
+        if (csv) csv.value = '';
+        this.syncChildPeriodFields();
 
         const modalEl = document.getElementById('modalPickChild');
         if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
@@ -638,18 +839,119 @@ const MappingSubdistForm = {
         this.updateOrphanSelectedLabel();
     },
 
-    confirmPickChildren: function () {
+    confirmPickChildren: async function () {
         const ids = this.getSelectedOrphanIds();
         if (!ids.length) {
             MappingSubdistStore.toast('warning', 'Centang minimal 1 subdist');
             return;
         }
-        this.pickChildren(ids);
+        const hist = document.getElementById('childPeriodHistorical');
+        const isHistorical = hist && hist.checked;
+        let ym = null;
+        let csvResult = null;
+
+        if (isHistorical) {
+            const monthEl = document.getElementById('childPeriodMonth');
+            ym = monthEl ? monthEl.value : '';
+            if (!ym) {
+                MappingSubdistStore.toast('warning', 'Pilih nama bulan historis');
+                return;
+            }
+            const fileEl = document.getElementById('childPeriodCsv');
+            const file = fileEl && fileEl.files && fileEl.files[0];
+            if (!file) {
+                MappingSubdistStore.toast('warning', 'Upload CSV LISTING_CLAIM wajib untuk periode sebelumnya');
+                return;
+            }
+            if (typeof ListingClaimCsv === 'undefined') {
+                MappingSubdistStore.toast('error', 'ListingClaimCsv belum dimuat');
+                return;
+            }
+
+            const master = MappingSubdistStore.getBosnetMaster();
+            const childrenMeta = ids.map(kode => {
+                const src = master.find(d => d.kodeKmmd === kode) || MappingSubdistStore.getById(kode) || { kodeKmmd: kode };
+                return {
+                    id: src.kodeKmmd || kode,
+                    kodeKmmd: src.kodeKmmd || kode,
+                    kodeBranch: src.kodeBranch || '',
+                    branchEpm: src.branchEpm || '',
+                    namaKmmd: src.namaKmmd || ''
+                };
+            });
+
+            try {
+                const text = await ListingClaimCsv.readFileAsText(file);
+                csvResult = ListingClaimCsv.validateAndAggregate(text, childrenMeta, ym);
+                if (!csvResult.ok) {
+                    MappingSubdistStore.toast('error', csvResult.message || 'CSV tidak valid');
+                    return;
+                }
+            } catch (e) {
+                MappingSubdistStore.toast('error', e.message || 'Gagal baca CSV');
+                return;
+            }
+
+            await MappingSubdistStore.ensureSwal();
+            const preview = MockBiLedger.previewHistoricalInject(
+                this.itemId || (this.getFormSnapshot().kodeKmmd),
+                csvResult.totalAmount
+            );
+            const fmt = (n) => MockBiLedger.formatRp(n);
+            const minesHtml = preview.willGoNegative
+                ? '<div class="alert alert-danger text-start py-2">Proyeksi sisa akan <b>mines</b> (' +
+                  fmt(preview.projectedSisa) + ').</div>' +
+                  '<label class="form-check text-start"><input type="checkbox" class="form-check-input" id="swalAckHist"> ' +
+                  '<span class="form-check-label">Acknowledge mines</span></label>'
+                : '<div class="alert alert-success text-start py-2">Proyeksi sisa: ' + fmt(preview.projectedSisa) + '</div>';
+
+            if (typeof Swal !== 'undefined') {
+                const conf = await Swal.fire({
+                    title: 'Preview inject historis',
+                    html:
+                        '<div class="text-start">' +
+                        '<p>Bulan: <b>' + MockBiLedger.formatYmLabel(ym) + '</b></p>' +
+                        '<p>Baris match: <b>' + csvResult.matchedRows + '</b></p>' +
+                        '<p>Total inject: <b>' + fmt(csvResult.totalAmount) + '</b></p>' +
+                        '<p>Sisa budget sekarang: ' + fmt(preview.budget.sisa) + '</p>' +
+                        minesHtml +
+                        '</div>',
+                    showCancelButton: true,
+                    confirmButtonText: 'Ya, tambah child',
+                    cancelButtonText: 'Batal',
+                    preConfirm: () => {
+                        if (preview.willGoNegative) {
+                            const ack = document.getElementById('swalAckHist');
+                            if (!ack || !ack.checked) {
+                                Swal.showValidationMessage('Acknowledge mines wajib');
+                                return false;
+                            }
+                        }
+                        return true;
+                    },
+                    customClass: {
+                        confirmButton: 'btn btn-primary me-2',
+                        cancelButton: 'btn btn-label-secondary'
+                    },
+                    buttonsStyling: false
+                });
+                if (!conf.isConfirmed) return;
+            }
+            csvResult.acknowledgeMines = true;
+            csvResult.sourceFile = file.name;
+        }
+
+        await this.pickChildren(ids, {
+            ym: isHistorical ? ym : (typeof MockBiLedger !== 'undefined' ? MockBiLedger.currentYm() : null),
+            historical: isHistorical,
+            csvResult: csvResult
+        });
     },
 
-    pickChildren: function (childIds) {
+    pickChildren: async function (childIds, periodOpts) {
         const ids = Array.isArray(childIds) ? childIds : [childIds];
         if (!ids.length) return;
+        periodOpts = periodOpts || {};
 
         if (!this.ensureParentSaved()) return;
 
@@ -678,9 +980,53 @@ const MappingSubdistForm = {
                 : namaGroup
         });
         MappingSubdistStore.upsert(parent);
-        MappingSubdistStore.addChildrenFromBosnet(ids, parent);
 
-        MappingSubdistStore.toast('success', ids.length + ' child ditambahkan');
+        const linkedYm = periodOpts.ym || (typeof MockBiLedger !== 'undefined' ? MockBiLedger.currentYm() : MappingSubdistStore.todayWib().slice(0, 7));
+        MappingSubdistStore.addChildrenFromBosnet(ids, parent, linkedYm);
+
+        if (periodOpts.historical && periodOpts.csvResult && typeof MockBiLedger !== 'undefined') {
+            const parentKode = parent.id || parent.kodeKmmd;
+            const csv = periodOpts.csvResult;
+            const perChild = csv.perChild || {};
+            const keys = Object.keys(perChild);
+            for (let i = 0; i < keys.length; i++) {
+                const key = keys[i];
+                const row = perChild[key];
+                const inj = MockBiLedger.applyHistoricalInject({
+                    parentKode: parentKode,
+                    childKode: key,
+                    ym: linkedYm,
+                    amount: row.amount,
+                    acknowledgeMines: true,
+                    sourceFile: csv.sourceFile || 'upload.csv'
+                });
+                if (!inj.ok) {
+                    MappingSubdistStore.toast('error', inj.message || 'Inject historis gagal');
+                    return;
+                }
+            }
+            // If CSV matched as pooled total only without per-child split keys — inject once split equal
+            if (!keys.length && csv.totalAmount > 0) {
+                const each = Math.round(csv.totalAmount / ids.length);
+                for (let i = 0; i < ids.length; i++) {
+                    MockBiLedger.applyHistoricalInject({
+                        parentKode: parentKode,
+                        childKode: ids[i],
+                        ym: linkedYm,
+                        amount: i === ids.length - 1
+                            ? (csv.totalAmount - each * (ids.length - 1))
+                            : each,
+                        acknowledgeMines: true,
+                        sourceFile: csv.sourceFile || 'upload.csv'
+                    });
+                }
+            }
+        }
+
+        MappingSubdistStore.toast(
+            'success',
+            ids.length + ' child ditambahkan' + (periodOpts.historical ? ' + inject historis' : '')
+        );
 
         const modalEl = document.getElementById('modalPickChild');
         if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
@@ -694,7 +1040,7 @@ const MappingSubdistForm = {
     },
 
     pickChild: function (childId) {
-        this.pickChildren([childId]);
+        this.confirmPickChildren();
     },
 
     destroyActivityTable: function () {

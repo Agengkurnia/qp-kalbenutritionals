@@ -6,7 +6,7 @@
 | **Dokumen** | FSD Master Data (bagian 1) |
 | **Produk** | Development Fund Subdist — Kalbe Nutritionals (SHP) |
 | **Sistem** | **MAVEN** (setting master) |
-| **Versi** | 0.1 (draft dari prototype) |
+| **Versi** | 0.3 (draft dari prototype) |
 | **Tanggal** | 24 Juli 2026 |
 | **Sumber** | Prototype `QP Kalbe Nutritionals` + `Documentation/business-documentation.md` |
 | **Status** | Draft untuk kepentingan penyusunan FSD formal |
@@ -48,8 +48,9 @@ Menyediakan spesifikasi fungsional master data agar:
 
 | Role (prototype) | Hak di Mapping Subdist |
 |------------------|------------------------|
-| **Administrator** | Full: list, tambah, ubah, mapping child/activity, lepas |
-| **CSD / RAS** | Full (PIC master per dokumen bisnis) |
+| **Administrator** | Full: list, tambah, ubah, mapping child/activity, lepas + koreksi BI (mock) |
+| **CSD / RAS** | Full mapping; lepas child **tanpa** koreksi periode (atau view impact saja — production: PIC master) |
+| **CCD / FA** | Lepas child **dengan** periode koreksi ke BI (mock) |
 | Role lain | **View only**: lihat detail; tanpa Tambah / Simpan / Add / Lepas |
 
 *Catatan:* Role diambil dari `localStorage.currentRole` (prototype). Di FSD formal MAVEN, sesuaikan dengan matrix otorisasi production.
@@ -161,9 +162,12 @@ Modul untuk:
 **Alur tambah child:**
 1. Pada tab **Mapping Child**, user klik **Add**.
 2. Jika parent belum tersimpan, sistem menyimpan dulu.
-3. Popup menampilkan kandidat dari **Bosnet**.
-4. User multi-select lalu konfirmasi.
-5. Sistem menautkan child ke parent (`parent = TIDAK`, `parentKode` = parent).
+3. Popup menampilkan kandidat dari **Bosnet** + pilihan **periode berlaku**:
+   - **Bulan saat ini** — link berlaku dari awal bulan berjalan; tanpa CSV.
+   - **Periode sebelumnya** — user pilih **satu nama bulan** (sebelum bulan berjalan) dan **wajib upload** file CSV format **LISTING_CLAIM** (sama seperti Monitoring Claim EPM).
+4. User multi-select child lalu konfirmasi.
+5. Jika historis: sistem parse CSV → validasi identity branch/child → **preview impact** (total, inject ke BI mock, mines) → user setuju.
+6. Sistem menautkan child (`parent = TIDAK`, `parentKode` = parent) dengan `linkedAt` = **awal bulan efektif** (`YYYY-MM-01`). Historis: catat mutasi inject mock BI untuk bulan itu (memengaruhi total DF).
 
 **Filter kandidat popup (penting):**
 
@@ -175,14 +179,36 @@ Modul untuk:
 | | Parent **Group** lain |
 | | Child yang **sudah ter-link** ke parent ini |
 
-**Alur lepas child:**
+**Alur lepas child (sederhana — tanpa dampak injected):**
 1. User klik **Lepas** pada baris child.
-2. Sistem menampilkan **konfirmasi** (Ya, lepas / Batal).
-3. Jika ya: relasi dilepas; record menjadi standalone Non Group (`parentKode` kosong).
+2. Sistem cek dampak mutasi DF injected (mock BI) terkait mapping parent–child.
+3. Jika **tidak ada** dampak: konfirmasi (Ya, lepas / Batal) → relasi dilepas; child menjadi standalone Non Group.
 
 **Aturan tambahan:**
 - Mode Parent untuk Group maupun Non Group **boleh punya child**.
 - Jika tipe Group: Nama Group harus terisi sebelum Add child.
+- `linkedAt` = tanggal awal bulan efektif link (batas koreksi unmap).
+
+---
+
+#### UC-MD-04b — Lepas Child dengan Koreksi Periode (ke BI mock)
+
+**Aktor:** Administrator, CCD / FA (koreksi BI).  
+**Prekondisi:** Ada mutasi DF injected yang terkait child / parent mapping.
+
+**Alur:**
+1. User klik **Lepas** pada baris child.
+2. Sistem mendeteksi ada dampak → membuka **wizard**:
+   - **Tanggal efektif lepas** = **hari ini (WIB), fixed** (tidak dipilih user) — cut-off mapping ke depan.
+   - **Periode koreksi** = **bulan dari → bulan sampai** (nama bulan), dalam masa child ter-link s/d bulan berjalan.
+3. Sistem menampilkan **impact**: nilai dikoreksi, sisa budget, flag **mines** bila proyeksi sisa &lt; 0.
+4. User konfirmasi (acknowledge mines bila perlu) → post **mutasi koreksi** ke BI mock.
+5. Jika koreksi **sukses** → relasi dilepas + audit. Jika **gagal** → mapping **tidak** dilepas.
+
+**Catatan:**
+- Efektif lepas (hari ini) dan scope koreksi (rentang bulan) terpisah.
+- Koreksi = mutasi ledger, bukan hard-delete.
+- Lepas activity (**UC-MD-05**) tetap konfirmasi sederhana.
 
 ---
 
@@ -214,6 +240,16 @@ Modul untuk:
 | BR-MD-06 | Lepas child/activity wajib konfirmasi user. |
 | BR-MD-07 | Tidak ada delete record dari index (prototype). |
 | BR-MD-08 | NPWP / PPN / PPh tidak dikelola di form Mapping Subdist (revisi prototype). |
+| BR-MD-09 | Lepas child dengan dampak: wizard wajib; efektif lepas = hari ini (fixed); koreksi = bulan dari–sampai. |
+| BR-MD-10 | Rentang bulan koreksi hanya dalam masa child ter-link s/d bulan berjalan; di luar → ditolak. |
+| BR-MD-11 | Unmap dengan dampak hanya setelah mutasi koreksi BI (mock) sukses (atomic). |
+| BR-MD-12 | Koreksi unmap = mutasi ledger (− / reclass), bukan hard-delete. |
+| BR-MD-13 | Proyeksi sisa &lt; 0 → warning mines; lanjut hanya dengan acknowledge. |
+| BR-MD-14 | Add child: wajib pilih Bulan saat ini atau Periode sebelumnya. |
+| BR-MD-15 | Periode sebelumnya: wajib satu nama bulan + upload CSV LISTING_CLAIM; format sama Monitoring. |
+| BR-MD-16 | CSV historis divalidasi cocok identity branch/child; `TRX_DATE` mayoritas harus di bulan dipilih. |
+| BR-MD-17 | Add historis: preview impact wajib sebelum commit link + inject mock. |
+| BR-MD-18 | `linkedAt` = `YYYY-MM-01` bulan efektif (bulan ini atau bulan historis). |
 
 ---
 
@@ -238,6 +274,7 @@ Modul untuk:
 | `alamat` | text | User | |
 | `active` | boolean | User | |
 | `activities` | array | User + Master Activity | Mapping activity |
+| `linkedAt` | date string (`YYYY-MM-01`) \| null | Sistem | Awal bulan efektif link (batas koreksi unmap) |
 
 #### Relasi
 
@@ -270,7 +307,7 @@ MappingSubdist (Parent YA)
 | **Bosnet (KMMD)** | Inbound LOV | Sumber identitas Subdist; prototype = seed + extra mock |
 | **Master Data API (Activity)** | Inbound LOV | Jenis activity; prototype = seed |
 | **EPM Branch** | Via field Bosnet | `kodeBranch` / `branchEpm` dipakai juga untuk matching Monitoring Claim EPM |
-| **BI / KICAO** | Tidak langsung dari master ini | Master dipakai sebagai acuan hierarchy & activity di proses DF |
+| **BI / KICAO** | Outbound koreksi (mock) saat lepas child berdampak | Mutasi koreksi via `MockBiLedger`; production → API BI |
 
 ---
 
@@ -321,8 +358,8 @@ Untuk kelengkapan FSD formal, kebutuhan bisnis (dari dokumen project):
 1. Data persistensi = browser `localStorage` (reset browser / ganti device = data hilang kecuali di-seed ulang).
 2. Bosnet & Master Activity = mock; kontrak API production perlu dilampirkan saat FSD final.
 3. Matching Monitoring Claim EPM ke Subdist bergantung pada keselarasan `branchEpm` / `kodeBranch` dengan CSV EPM (ejaan nama kritis).
-4. Tidak ada soft-delete / audit trail formal di prototype.
-5. Resign Subdist / reclass budget = di luar master ini (proses BI).
+4. Soft-delete fisik tidak ada; audit trail koreksi unmap ada di mock BI ledger.
+5. Resign / reclass penuh Subdist parent tetap proses BI terpisah; lepas child dengan periode koreksi sudah masuk scope prototype (mock).
 
 ---
 
@@ -349,8 +386,11 @@ Untuk kelengkapan FSD formal, kebutuhan bisnis (dari dokumen project):
 | Store / rules | `js/masters/MappingSubdist/MappingSubdistStore.js` |
 | Seed Subdist / Bosnet | `js/masters/MappingSubdist/seed-data.js` |
 | Seed Activity | `js/masters/MappingSubdist/activity-seed.js` |
+| Mock BI ledger | `js/shared/MockBiLedger.js` |
+| Parser LISTING_CLAIM (Add historis) | `js/shared/ListingClaimCsv.js` |
 | Menu | `js/layout.js` |
 | Konteks bisnis | `Documentation/business-documentation.md` |
+| Inject / koreksi | `Documentation/FSD-Inject-Delta-BI.md` |
 
 ---
 
@@ -359,6 +399,8 @@ Untuk kelengkapan FSD formal, kebutuhan bisnis (dari dokumen project):
 | Versi | Tanggal | Perubahan |
 |-------|---------|-----------|
 | 0.1 | 24 Jul 2026 | Draft awal FSD Master Data dari prototype (fokus Mapping Subdist) |
+| 0.2 | 24 Jul 2026 | UC-MD-04b lepas child + periode koreksi; BR-MD-09..13; `linkedAt` |
+| 0.3 | 24 Jul 2026 | Add child periode + CSV historis; lepas koreksi per bulan; BR-MD-14..18 |
 
 ---
 

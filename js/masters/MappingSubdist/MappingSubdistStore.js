@@ -3,11 +3,32 @@
  */
 const MappingSubdistStore = {
     STORAGE_KEY: 'df_mapping_subdist_v2',
-    EDIT_ROLES: ['Administrator', 'CSD / RAS'],
+    EDIT_ROLES: ['Administrator', 'CSD / RAS', 'CCD / FA'],
+    /** Roles that may run BI unmap correction (mock) */
+    CORRECTION_ROLES: ['Administrator', 'CCD / FA'],
 
     canEdit: function () {
         const role = localStorage.getItem('currentRole') || 'Administrator';
         return this.EDIT_ROLES.includes(role);
+    },
+
+    getRole: function () {
+        return localStorage.getItem('currentRole') || 'Administrator';
+    },
+
+    canCorrectBi: function () {
+        return this.CORRECTION_ROLES.includes(this.getRole());
+    },
+
+    todayWib: function () {
+        if (typeof MockBiLedger !== 'undefined') return MockBiLedger.todayWib();
+        const fmt = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Jakarta',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        });
+        return fmt.format(new Date());
     },
 
     load: function () {
@@ -131,6 +152,9 @@ const MappingSubdistStore = {
         data[idx].namaSubdistGroup = groupType === 'Non Group'
             ? (parentItem.namaKmmd || parentItem.namaSubdistGroup || namaGroup)
             : (parentItem.namaSubdistGroup || parentItem.namaGroup);
+        if (!data[idx].linkedAt) data[idx].linkedAt = this.monthStartLinkedAt(
+            typeof MockBiLedger !== 'undefined' ? MockBiLedger.currentYm() : this.todayWib().slice(0, 7)
+        );
         this.save(data);
     },
 
@@ -143,7 +167,69 @@ const MappingSubdistStore = {
         data[idx].groupType = 'Non Group';
         data[idx].namaGroup = 'Non Group';
         data[idx].namaSubdistGroup = data[idx].namaKmmd;
+        data[idx].linkedAt = null;
         this.save(data);
+    },
+
+    /**
+     * Impact check for unmap wizard (Mock BI) by month range.
+     */
+    getImpactForChild: function (parentItem, childItem, fromYm, toYm) {
+        if (typeof MockBiLedger === 'undefined') {
+            return { hasImpact: false, correctionAmount: 0, lines: [], willGoNegative: false };
+        }
+        const parentKode = parentItem.id || parentItem.kodeKmmd;
+        const childKode = childItem.id || childItem.kodeKmmd;
+        const today = this.todayWib();
+        const linkedAt = childItem.linkedAt || (today.slice(0, 8) + '01');
+        const linkedYm = MockBiLedger.toYm(linkedAt);
+        const curYm = MockBiLedger.currentYm();
+        const from = fromYm || linkedYm;
+        const to = toYm || curYm;
+        return MockBiLedger.getImpactForChildByMonths(parentKode, childKode, from, to);
+    },
+
+    /** Months available for unmap correction: linkedYm … currentYm */
+    getUnmapMonthOptions: function (childItem) {
+        if (typeof MockBiLedger === 'undefined') return [];
+        const today = this.todayWib();
+        const linkedAt = (childItem && childItem.linkedAt) || (today.slice(0, 8) + '01');
+        const fromYm = MockBiLedger.toYm(linkedAt);
+        const toYm = MockBiLedger.currentYm();
+        return MockBiLedger.listMonthsBetween(fromYm, toYm).map(ym => ({
+            value: ym,
+            label: MockBiLedger.formatYmLabel(ym)
+        }));
+    },
+
+    /** Prior months only (for historical add) — last 12 months before current */
+    getHistoricalMonthOptions: function () {
+        if (typeof MockBiLedger === 'undefined') return [];
+        const cur = MockBiLedger.currentYm();
+        let [y, m] = cur.split('-').map(Number);
+        m -= 1;
+        if (m < 1) { m = 12; y -= 1; }
+        const endYm = y + '-' + String(m).padStart(2, '0');
+        let sy = y;
+        let sm = m - 11;
+        while (sm < 1) { sm += 12; sy -= 1; }
+        const startYm = sy + '-' + String(sm).padStart(2, '0');
+        return MockBiLedger.listMonthsBetween(startYm, endYm).reverse().map(ym => ({
+            value: ym,
+            label: MockBiLedger.formatYmLabel(ym)
+        }));
+    },
+
+    applyUnmapCorrection: function (opts) {
+        if (typeof MockBiLedger === 'undefined') {
+            return { ok: false, message: 'MockBiLedger belum dimuat' };
+        }
+        return MockBiLedger.applyUnmapCorrection(opts);
+    },
+
+    monthStartLinkedAt: function (ym) {
+        if (typeof MockBiLedger !== 'undefined') return MockBiLedger.monthStart(ym);
+        return (ym || this.todayWib().slice(0, 7)) + '-01';
     },
 
     getBosnetMaster: function () {
@@ -193,9 +279,12 @@ const MappingSubdistStore = {
         });
     },
 
-    addChildrenFromBosnet: function (kodes, parentItem) {
+    addChildrenFromBosnet: function (kodes, parentItem, linkedAtYm) {
         const list = Array.isArray(kodes) ? kodes : [kodes];
         const master = this.getBosnetMaster();
+        const linkedAt = this.monthStartLinkedAt(
+            linkedAtYm || (typeof MockBiLedger !== 'undefined' ? MockBiLedger.currentYm() : this.todayWib().slice(0, 7))
+        );
         list.forEach(kode => {
             const src = master.find(d => d.kodeKmmd === kode);
             if (!src) return;
@@ -219,11 +308,18 @@ const MappingSubdistStore = {
                     region: src.region || '',
                     tipeKmmd: src.tipeKmmd || 'KMMD-B',
                     alamat: src.alamat || '',
-                    active: src.active !== false
+                    active: src.active !== false,
+                    linkedAt: linkedAt
                 };
                 this.upsert(existing);
             } else {
                 this.setAsChildOf(existing.id, parentItem);
+                const data = this.load();
+                const idx = data.findIndex(d => d.id === existing.id);
+                if (idx >= 0) {
+                    data[idx].linkedAt = linkedAt;
+                    this.save(data);
+                }
             }
         });
     },

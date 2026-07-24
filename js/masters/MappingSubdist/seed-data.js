@@ -37,7 +37,8 @@
         "npwp":  "",
         "ppn":  true,
         "pph":  true,
-        "active":  true
+        "active":  true,
+        "linkedAt":  "2026-06-01"
     },
     {
         "id":  "010207",
@@ -97,7 +98,8 @@
         "npwp":  "",
         "ppn":  true,
         "pph":  true,
-        "active":  true
+        "active":  true,
+        "linkedAt":  "2026-06-01"
     },
     {
         "id":  "330101",
