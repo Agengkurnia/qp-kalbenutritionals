@@ -103,16 +103,22 @@ const KicaoLayout = {
     },
 
     renderSidebar: function (base, active) {
-        const mkppActive = active === 'mkpp' ? ' active' : '';
+        const a = function (key) { return active === key ? ' active' : ''; };
         return (
             '<aside class="main-sidebar">' +
             '<section class="sidebar">' +
             '<ul class="sidebar-menu">' +
             '<li class="header">MAIN NAVIGATION</li>' +
-            '<li class="' + mkppActive.trim() + '">' +
+            '<li class="' + a('mkpp').trim() + '">' +
             '<a href="mkpp.html"><i class="fa fa-file-text-o"></i> <span>MKPP</span>' +
             '<span class="pull-right-container"><small class="label pull-right bg-yellow">Proto</small></span>' +
             '</a></li>' +
+            '<li class="' + a('uploader').trim() + '">' +
+            '<a href="mkpp-uploader.html"><i class="fa fa-upload"></i> <span>MKPP Uploader</span></a></li>' +
+            '<li class="' + a('closeuploader').trim() + '">' +
+            '<a href="mkpp-close-uploader.html"><i class="fa fa-close"></i> <span>MKPP Close Uploader</span></a></li>' +
+            '<li class="' + a('bosnet').trim() + '">' +
+            '<a href="mkpp-bosnet-job.html"><i class="fa fa-server"></i> <span>BOSNET Job</span></a></li>' +
             '</ul>' +
             '<div class="df-switch-template">' +
             '<span class="df-switch-label">Switch Prototype</span>' +

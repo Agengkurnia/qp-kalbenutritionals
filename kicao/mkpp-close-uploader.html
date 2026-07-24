@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>MKPP Close Uploader | KICAO Prototype</title>
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <link rel="stylesheet" href="../assets/kicao/fonts/KalbeFont/font.css">
+    <link rel="stylesheet" href="../assets/kicao/css/bootstrap.min.css">
+    <link rel="stylesheet" href="../assets/kicao/css/fontawesome.min.css">
+    <link rel="stylesheet" href="../assets/kicao/css/AdminLTE.min.css">
+    <link rel="stylesheet" href="../assets/kicao/css/skins/_all-skins.min.css">
+    <link rel="stylesheet" href="../assets/kicao/css/styles.css">
+    <link rel="stylesheet" href="css/kicao-proto.css">
+</head>
+<body class="hold-transition skin-green sidebar-mini">
+<div id="kicaoPageContent">
+    <section class="content-header">
+        <h1>MKPP Close Uploader <small>Batch close by Doc No</small></h1>
+    </section>
+    <section class="content">
+        <div class="box box-primary">
+            <div class="box-header with-border text-right">
+                <button type="button" class="btn btn-info" id="btnTemplate"><i class="fa fa-download"></i> Template CSV</button>
+                <button type="button" class="btn btn-warning" id="btnProcess"><i class="fa fa-close"></i> Process Close</button>
+            </div>
+            <div class="box-body">
+                <div class="form-group">
+                    <label>Upload CSV (kolom Doc No)</label>
+                    <input type="file" id="fileClose" accept=".csv,.txt">
+                </div>
+                <p class="text-muted">Hanya dokumen <strong>Approved</strong> atau <strong>Waiting To Close</strong> yang diproses. Close memakai simulasi BOSNET (bisa jadi Closed atau Waiting To Close).</p>
+                <table class="table table-bordered table-condensed" id="tblClose">
+                    <thead><tr><th>Doc No</th><th>Preview Status</th><th>Message</th><th>Result Status</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+</div>
+<script src="../assets/kicao/js/jquery.min.js"></script>
+<script src="../assets/kicao/js/bootstrap.min.js"></script>
+<script src="../assets/kicao/js/app.min.js"></script>
+<script src="../assets/kicao/js/bootbox.min.js"></script>
+<script src="js/KicaoLayout.js"></script>
+<script src="js/MkppStore.js"></script>
+<script src="js/MkppBosnet.js"></script>
+<script src="js/MkppCloseUploader.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    KicaoLayout.init({ active: 'closeuploader' });
+
+    function render() {
+        const rows = MkppCloseUploader.rows.map(r =>
+            '<tr><td>' + r.docNo + '</td><td>' + r.status + '</td><td>' + r.message + '</td><td>' + (r.resultStatus || '') + '</td></tr>'
+        ).join('');
+        document.querySelector('#tblClose tbody').innerHTML = rows || '<tr><td colspan="4">Belum ada data</td></tr>';
+    }
+
+    document.getElementById('btnTemplate').onclick = function () { MkppCloseUploader.downloadTemplate(); };
+
+    document.getElementById('fileClose').onchange = function () {
+        const file = this.files && this.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function () {
+            const docs = MkppCloseUploader.parseCsv(String(reader.result || ''));
+            MkppCloseUploader.preview(docs);
+            render();
+            KicaoLayout.toast(docs.length + ' Doc No di-preview.', 'Close Uploader');
+        };
+        reader.readAsText(file);
+    };
+
+    document.getElementById('btnProcess').onclick = function () {
+        MkppCloseUploader.process();
+        render();
+        KicaoLayout.toast('Process close selesai.', 'Close Uploader');
+    };
+});
+</script>
+</body>
+</html>

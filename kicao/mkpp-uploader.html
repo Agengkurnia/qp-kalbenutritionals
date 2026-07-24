@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>MKPP Uploader | KICAO Prototype</title>
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <link rel="stylesheet" href="../assets/kicao/fonts/KalbeFont/font.css">
+    <link rel="stylesheet" href="../assets/kicao/css/bootstrap.min.css">
+    <link rel="stylesheet" href="../assets/kicao/css/fontawesome.min.css">
+    <link rel="stylesheet" href="../assets/kicao/css/AdminLTE.min.css">
+    <link rel="stylesheet" href="../assets/kicao/css/skins/_all-skins.min.css">
+    <link rel="stylesheet" href="../assets/kicao/css/styles.css">
+    <link rel="stylesheet" href="css/kicao-proto.css">
+</head>
+<body class="hold-transition skin-green sidebar-mini">
+<div id="kicaoPageContent">
+    <section class="content-header">
+        <h1>MKPP Uploader <small>Excel / CSV mock</small></h1>
+    </section>
+    <section class="content">
+        <div class="box box-primary">
+            <div class="box-header with-border text-right">
+                <button type="button" class="btn btn-info" id="btnTemplateCsv"><i class="fa fa-download"></i> Template CSV</button>
+                <button type="button" class="btn btn-info" id="btnTemplateXlsx"><i class="fa fa-download"></i> Template XLSX</button>
+                <button type="button" class="btn btn-success" id="btnProcess"><i class="fa fa-cogs"></i> Process</button>
+            </div>
+            <div class="box-body">
+                <div class="form-group">
+                    <label>Upload file (.csv / .xlsx)</label>
+                    <input type="file" id="fileUpload" accept=".csv,.xlsx,.xls,.txt">
+                </div>
+                <p class="text-muted">Kolom mengikuti template KDS: Parent, Group Account, Budget Type, Posting Date, Program Description, Mekanisme, Remark, Activity, Period From/To, Budget, Dolphine Ref, SubUmbrand, Amount.</p>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-condensed" id="tblPreview">
+                        <thead>
+                            <tr>
+                                <th>#</th><th>Group Account</th><th>Activity</th><th>Amount</th><th>Status</th><th>Message</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+<script src="../assets/kicao/js/jquery.min.js"></script>
+<script src="../assets/kicao/js/bootstrap.min.js"></script>
+<script src="../assets/kicao/js/app.min.js"></script>
+<script src="../assets/kicao/js/bootbox.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="js/KicaoLayout.js"></script>
+<script src="js/MkppStore.js"></script>
+<script src="js/MkppUploader.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    KicaoLayout.init({ active: 'uploader' });
+
+    function renderPreview() {
+        const rows = MkppUploader.rows.map(r =>
+            '<tr class="' + (r.status === 'ERROR' ? 'danger' : (r.status === 'PROCESSED' ? 'success' : '')) + '">' +
+            '<td>' + r.rowIndex + '</td>' +
+            '<td>' + ((r.raw && r.raw['GROUP ACCOUNT']) || '') + '</td>' +
+            '<td>' + ((r.raw && r.raw['ACTIVITY']) || '') + '</td>' +
+            '<td>' + ((r.raw && r.raw['AMOUNT']) || '') + '</td>' +
+            '<td>' + r.status + '</td>' +
+            '<td>' + r.message + '</td></tr>'
+        ).join('');
+        document.querySelector('#tblPreview tbody').innerHTML = rows || '<tr><td colspan="6">Belum ada data</td></tr>';
+    }
+
+    document.getElementById('btnTemplateCsv').onclick = function () { MkppUploader.downloadTemplateCsv(); };
+    document.getElementById('btnTemplateXlsx').onclick = function () { MkppUploader.downloadTemplateXlsx(); };
+
+    document.getElementById('fileUpload').onchange = function () {
+        const file = this.files && this.files[0];
+        if (!file) return;
+        MkppUploader.parseFile(file, function (err, data) {
+            if (err) {
+                KicaoLayout.toast(err.message || String(err), 'Upload');
+                return;
+            }
+            MkppUploader.preview(data);
+            renderPreview();
+            KicaoLayout.toast(data.length + ' baris di-preview.', 'Upload');
+        });
+    };
+
+    document.getElementById('btnProcess').onclick = function () {
+        const res = MkppUploader.process();
+        renderPreview();
+        KicaoLayout.toast(res.message + (res.created && res.created.length ? (' · ' + res.created.join(', ')) : ''), 'Process');
+    };
+});
+</script>
+</body>
+</html>
