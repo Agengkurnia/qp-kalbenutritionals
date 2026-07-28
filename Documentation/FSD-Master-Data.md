@@ -408,6 +408,7 @@ Untuk kelengkapan FSD formal, kebutuhan bisnis (dari dokumen project):
 | 0.2 | 24 Jul 2026 | UC-MD-04b lepas child + periode koreksi; BR-MD-09..13; `linkedAt` |
 | 0.3 | 24 Jul 2026 | Add child periode + CSV historis; lepas koreksi per bulan; BR-MD-14..18 |
 | 0.4 | 28 Jul 2026 | Index tanpa kolom Aksi/Edit (navigasi via Kode KMMD); Titik dihapus dari UI; LOV Bosnet `vw_Outlet_Bosnet`; field identitas disabled + Autopopulate; Action kiri + DataTables/SweetAlert di Child/Activity; aligned MAVEN `/DF/MappingSubdist` |
+| 0.4.1 | 28 Jul 2026 | Prototype UI diselaraskan ke MAVEN: Index Filter+Tambah, card title, Detail btn-sm, tanpa Parent toggle, LOV disabled (bukan hidden) saat edit, DataTables language/layout |
 
 ---
 

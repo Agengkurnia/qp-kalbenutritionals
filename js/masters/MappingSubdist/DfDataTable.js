@@ -5,25 +5,29 @@
 const DfDataTable = {
     language: {
         emptyTable: 'Tidak ada data',
+        zeroRecords: 'Tidak ada data yang cocok',
         search: 'Cari:',
         lengthMenu: 'Tampil _MENU_',
-        info: '_START_–_END_ dari _TOTAL_',
-        infoEmpty: '0 data',
-        infoFiltered: '(filter dari _MAX_)',
-        zeroRecords: 'Tidak ditemukan',
-        paginate: { previous: 'Prev', next: 'Next' }
+        info: 'Menampilkan _START_–_END_ dari _TOTAL_',
+        infoEmpty: 'Menampilkan 0 data',
+        infoFiltered: '(filter dari _MAX_ total)',
+        paginate: {
+            first: 'Awal',
+            last: 'Akhir',
+            next: '›',
+            previous: '‹'
+        }
     },
 
-    /** Bootstrap grid layout for controls */
+    /** Bootstrap grid layout for controls — aligned MAVEN DataTables */
     dom: '<"row mx-0 mb-3 align-items-center"<"col-sm-6"l><"col-sm-6"f>>rt<"row mx-0 mt-3 align-items-center"<"col-sm-5"i><"col-sm-7"p>>',
 
-    tableClass: 'table table-bordered table-hover table-sm align-middle w-100 df-dt-grid',
+    tableClass: 'table table-bordered table-sm w-100',
 
     defaults: function (extra) {
         const base = {
             pageLength: 10,
-            lengthMenu: [5, 10, 25, 50],
-            ordering: true,
+            lengthMenu: [5, 10, 25, 50, 100],
             autoWidth: false,
             destroy: true,
             responsive: false,
@@ -77,7 +81,10 @@ const DfDataTable = {
         const wrap = el.closest('.table-responsive') || el.parentElement;
         if (wrap) wrap.classList.add('df-dt-wrap');
 
-        el.className = this.tableClass;
+        // Keep existing theme classes (e.g. datatables-basic) + ensure bordered width
+        const keep = (el.className || '').split(/\s+/).filter(Boolean);
+        const base = this.tableClass.split(/\s+/);
+        el.className = [...new Set(keep.concat(base))].join(' ');
         el.style.width = '100%';
         return el;
     },

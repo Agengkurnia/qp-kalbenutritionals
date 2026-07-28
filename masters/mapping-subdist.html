@@ -10,10 +10,6 @@
 
 <body>
     <div id="app-content">
-        <h4 class="fw-bold py-3 mb-4">
-            <span class="text-muted fw-light">Master /</span> Mapping Subdist
-        </h4>
-
         <div class="card mb-4">
             <div class="card-body">
                 <div class="row g-3 align-items-end">
@@ -32,8 +28,9 @@
                         </select>
                     </div>
                     <div class="col-md-4 d-flex justify-content-end gap-2">
+                        <button type="button" id="btnFilter" class="btn btn-outline-primary btn-sm">Filter</button>
                         <button type="button" id="btnAddSubdist" class="btn btn-success btn-sm">
-                            <i class="fas fa-plus me-1"></i> Tambah
+                            <i class="fas fa-plus me-1"></i>Tambah
                         </button>
                     </div>
                 </div>
@@ -41,13 +38,13 @@
         </div>
 
         <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">Daftar Subdist / KMMD</h5>
-                <small class="text-muted" id="subdistCountLabel">0 data</small>
-            </div>
             <div class="card-body">
-                <div class="card-datatable table-responsive">
-                    <table class="table table-bordered table-hover table-sm align-middle w-100 df-dt-grid" id="tblMappingSubdist" style="width:100%">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4 class="card-title mb-0">Master Mapping Subdist</h4>
+                    <small class="text-muted" id="subdistCountLabel">0 data</small>
+                </div>
+                <div class="table-responsive">
+                    <table id="tblMappingSubdist" class="datatables-basic table table-bordered" style="width:100%">
                         <thead>
                             <tr>
                                 <th>Kode KMMD</th>

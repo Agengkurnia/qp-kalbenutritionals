@@ -51,12 +51,6 @@ const MappingSubdistForm = {
             this.save();
         });
 
-        document.getElementById('fldParentToggle').addEventListener('change', (e) => {
-            this.setParentChoice(e.target.checked ? 'YA' : 'TIDAK');
-            this.syncParentUI();
-            this.refreshMappingSections();
-        });
-
         document.getElementById('fldGroupType').addEventListener('change', () => {
             this.syncGroupUI();
             this.refreshMappingSections();
@@ -124,15 +118,17 @@ const MappingSubdistForm = {
     },
 
     applyBosnetLockUI: function () {
-        const toggle = document.getElementById('fldParentToggle');
+        // Identitas selalu disabled (Autopopulate dari Bosnet) — sama MAVEN
+        ['fldKodeKmmd', 'fldNamaKmmd', 'fldTipeKmmd', 'fldRegion', 'fldKodeBranch', 'fldBranchEpm']
+            .forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.disabled = true;
+            });
         const btnLov = document.getElementById('btnLovKmmd');
-        if (toggle) {
-            toggle.disabled = this.readOnly || this.bosnetLocked;
-        }
         if (btnLov) {
-            // Edit: kode sudah fixed; add: boleh ganti selama belum simpan
+            // Edit: LOV disabled tapi tetap terlihat (aligned MAVEN)
             btnLov.disabled = this.readOnly || !!this.itemId;
-            btnLov.style.display = this.readOnly || this.itemId ? 'none' : '';
+            btnLov.style.display = '';
         }
     },
 
@@ -222,8 +218,8 @@ const MappingSubdistForm = {
             document.getElementById('fldAlamat').value = src.alamat || src.address || '';
         }
 
-        // Peran dari master Bosnet, lalu dikunci
-        this.setParentChoice(src.parent === 'TIDAK' ? 'TIDAK' : 'YA');
+        // Form create selalu Parent (aligned MAVEN — tidak ada toggle Parent/Child)
+        this.setParentChoice('YA');
         if (src.groupType) {
             document.getElementById('fldGroupType').value = src.groupType;
         }
@@ -247,58 +243,35 @@ const MappingSubdistForm = {
     },
 
     setParentChoice: function (value) {
-        document.getElementById('fldParent').value = value;
-        const toggle = document.getElementById('fldParentToggle');
-        if (toggle) toggle.checked = value === 'YA';
-        const title = document.getElementById('parentToggleLabel');
-        if (title) title.textContent = value === 'YA' ? 'Parent' : 'Child';
+        const fld = document.getElementById('fldParent');
+        if (fld) fld.value = value || 'YA';
     },
 
-    /** Alur: pilih Group/Non Group → (kalau Group) toggle Parent → (kalau Parent) child table */
+    /** Alur MAVEN: pilih Group/Non Group → Nama Group (jika Group) → tabs setelah tersimpan */
     syncRoleVisibility: function () {
         const type = document.getElementById('fldGroupType').value;
-        const wrapToggle = document.getElementById('wrapParentToggle');
         const wrapGroup = document.getElementById('wrapNamaGroup');
         const fldGroup = document.getElementById('fldNamaGroup');
         const isGroup = type === 'Group';
         const isNonGroup = type === 'Non Group';
 
-        if (wrapToggle) wrapToggle.style.display = isGroup ? '' : 'none';
         if (wrapGroup) wrapGroup.style.display = isGroup ? '' : 'none';
 
+        this.setParentChoice('YA');
+
         if (isNonGroup) {
-            // Non Group tetap Parent YA dan boleh mapping child
-            this.setParentChoice('YA');
             fldGroup.value = 'Non Group';
             fldGroup.required = false;
         } else if (isGroup) {
             fldGroup.required = true;
             fldGroup.readOnly = this.readOnly;
             if (fldGroup.value === 'Non Group') fldGroup.value = '';
-            this.syncParentUI();
         } else {
-            // belum pilih tipe
             fldGroup.required = false;
         }
 
         this.applyBosnetLockUI();
         this.refreshMappingSections();
-    },
-
-    syncParentUI: function () {
-        const isParent = document.getElementById('fldParent').value === 'YA';
-        const hint = document.getElementById('hintNamaGroup');
-        const toggleHint = document.getElementById('parentToggleHint');
-        if (hint) {
-            hint.textContent = isParent
-                ? 'Parent menentukan nama group. Child di bawahnya harus pakai nama yang sama.'
-                : 'Isi nama group milik parent yang akan diikuti.';
-        }
-        if (toggleHint) {
-            toggleHint.textContent = isParent
-                ? 'ON — Parent (maintain saldo DF, bisa mapping child).'
-                : 'OFF — Child (ikut parent group).';
-        }
     },
 
     syncGroupUI: function () {
@@ -326,13 +299,13 @@ const MappingSubdistForm = {
             return;
         }
 
-        title.textContent = 'Detail';
-        subtitle.textContent = item.namaKmmd || '';
+        title.textContent = 'Edit';
+        subtitle.textContent = 'Ubah Group / Alamat / Activity / Child';
 
         document.getElementById('editId').value = item.id;
         document.getElementById('fldKodeKmmd').value = item.kodeKmmd || '';
         document.getElementById('fldNamaKmmd').value = item.namaKmmd || '';
-        this.setParentChoice(item.parent || 'YA');
+        this.setParentChoice('YA');
         document.getElementById('fldTipeKmmd').value = item.tipeKmmd || '';
         document.getElementById('fldGroupType').value = item.groupType || 'Group';
         document.getElementById('fldRegion').value = item.region || '';
@@ -342,8 +315,10 @@ const MappingSubdistForm = {
         document.getElementById('fldAlamat').value = item.alamat || '';
         document.getElementById('fldActive').checked = item.active !== false;
 
-        // Edit = identitas & peran sudah dari Bosnet → dikunci
+        // Edit = identitas dari Bosnet → dikunci; LOV disabled
         this.bosnetLocked = true;
+        this.applyBosnetLockUI();
+        this.syncRoleVisibility();
     },
 
     applyReadOnly: function () {
@@ -364,12 +339,9 @@ const MappingSubdistForm = {
         if (btnAddAct) btnAddAct.style.display = 'none';
     },
 
-    /** Parent YA (Group atau Non Group) bisa mapping child & activity */
+    /** Tabs Child/Activity hanya setelah Parent tersimpan (aligned MAVEN) */
     isParentMode: function () {
-        const type = document.getElementById('fldGroupType').value;
-        if (!type) return false;
-        if (type === 'Non Group') return true;
-        return document.getElementById('fldParent').value === 'YA';
+        return !!this.itemId;
     },
 
     refreshMappingSections: function () {
@@ -398,17 +370,14 @@ const MappingSubdistForm = {
         if (!this.itemId) {
             document.getElementById('childCountBadge').textContent = '0';
             document.getElementById('childHint').textContent =
-                'Klik Add untuk memilih child dari Bosnet (parent disimpan otomatis bila perlu).';
+                'Child di bawah parent ini (sumber: Bosnet).';
             this.renderChildren([]);
             this.scheduleDtAdjust(this.childTable);
             return;
         }
 
-        const label = parentSnapshot.groupType === 'Non Group'
-            ? (parentSnapshot.namaKmmd || '—')
-            : (parentSnapshot.namaGroup || '—');
         document.getElementById('childHint').textContent =
-            `Child di bawah "${label}". Sumber data: Bosnet API.`;
+            'Child di bawah parent ini (sumber: Bosnet).';
 
         const children = MappingSubdistStore.getChildren(parentSnapshot);
         document.getElementById('childCountBadge').textContent = String(children.length);
@@ -429,17 +398,14 @@ const MappingSubdistForm = {
         if (!this.itemId) {
             document.getElementById('activityCountBadge').textContent = '0';
             document.getElementById('activityHint').textContent =
-                'Klik Add untuk memilih activity dari Master Data (parent disimpan otomatis bila perlu).';
+                'Activity yang di-mapping ke parent ini.';
             this.renderActivities([]);
             this.scheduleDtAdjust(this.activityTable);
             return;
         }
 
-        const label = parentSnapshot.groupType === 'Non Group'
-            ? (parentSnapshot.namaKmmd || '—')
-            : (parentSnapshot.namaGroup || '—');
         document.getElementById('activityHint').textContent =
-            `Activity di bawah "${label}". Sumber data: Master Data API.`;
+            'Activity yang di-mapping ke parent ini.';
 
         const activities = MappingSubdistStore.getMappedActivities(parentSnapshot);
         document.getElementById('activityCountBadge').textContent = String(activities.length);
@@ -459,7 +425,7 @@ const MappingSubdistForm = {
         const existing = id ? MappingSubdistStore.getById(id) : null;
         return {
             id,
-            parent: document.getElementById('fldParent').value,
+            parent: 'YA',
             kodeKmmd: kode,
             namaKmmd: document.getElementById('fldNamaKmmd').value.trim(),
             titik: '',
@@ -548,7 +514,8 @@ const MappingSubdistForm = {
 
         if (!impact.hasImpact || !impact.correctionAmount) {
             const ok = await MappingSubdistStore.confirm(
-                `Lepas child "${displayName}" dari parent ini?`
+                'Child ini akan dilepas dari mapping.',
+                'Lepas Child?'
             );
             if (!ok) return;
             MappingSubdistStore.unlinkChild(childKode);
@@ -708,7 +675,7 @@ const MappingSubdistForm = {
 
     openPickChildModal: function () {
         if (!this.isParentMode()) {
-            MappingSubdistStore.toast('warning', 'Mapping child hanya untuk Parent (Group / Non Group)');
+            MappingSubdistStore.toast('warning', 'Simpan Parent terlebih dahulu');
             return;
         }
 
@@ -1080,7 +1047,8 @@ const MappingSubdistForm = {
                 const id = this.getAttribute('data-id');
                 const name = this.getAttribute('data-name') || id;
                 const ok = await MappingSubdistStore.confirm(
-                    `Lepas activity "${name}" dari mapping ini?`
+                    'Activity ini akan dilepas dari mapping.',
+                    'Lepas Activity?'
                 );
                 if (!ok) return;
                 MappingSubdistStore.unlinkActivity(self.itemId, id);
@@ -1092,7 +1060,7 @@ const MappingSubdistForm = {
 
     openPickActivityModal: function () {
         if (!this.isParentMode()) {
-            MappingSubdistStore.toast('warning', 'Mapping activity hanya untuk Parent (Group / Non Group)');
+            MappingSubdistStore.toast('warning', 'Simpan Parent terlebih dahulu');
             return;
         }
         if (!this.ensureParentSaved()) return;
@@ -1126,10 +1094,9 @@ const MappingSubdistForm = {
             `<div class="text-center">
                 <input type="checkbox" class="form-check-input chk-activity" value="${esc(a.id)}">
              </div>`,
-            `<code>${esc(a.kode)}</code>`,
+            esc(a.kode),
             esc(a.nama),
-            esc(a.kategori),
-            esc(a.deskripsi)
+            esc(a.kategori)
         ]);
 
         this.activityLovTable = DfDataTable.init('#tblActivityLov', {
@@ -1138,11 +1105,10 @@ const MappingSubdistForm = {
                 { orderable: false, searchable: false, className: 'text-center' },
                 { orderable: true },
                 { orderable: true },
-                { orderable: true },
                 { orderable: true }
             ],
             language: Object.assign({}, DfDataTable.language, {
-                emptyTable: 'Tidak ada kandidat dari Master Data API (semua sudah ter-mapping).'
+                emptyTable: 'Tidak ada activity tersedia / semua sudah ter-mapping'
             })
         });
 

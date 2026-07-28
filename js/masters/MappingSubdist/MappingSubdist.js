@@ -1,6 +1,6 @@
 /**
  * List page — Master Mapping Subdist
- * Aligned with MAVEN /DF/MappingSubdist Index (no Aksi column; open via Kode KMMD link)
+ * Aligned with MAVEN /DF/MappingSubdist Index
  */
 const MappingSubdistPage = {
     data: [],
@@ -30,9 +30,11 @@ const MappingSubdistPage = {
             regionSel.appendChild(opt);
         });
 
-        ['filterRegion', 'filterGroupType'].forEach(id => {
-            document.getElementById(id).addEventListener('change', () => this.render());
-        });
+        const btnFilter = document.getElementById('btnFilter');
+        if (btnFilter) {
+            btnFilter.addEventListener('click', () => this.render());
+        }
+        document.getElementById('filterGroupType').addEventListener('change', () => this.render());
 
         document.getElementById('btnAddSubdist').addEventListener('click', () => {
             window.location.href = MappingSubdistStore.formUrl();
@@ -67,24 +69,14 @@ const MappingSubdistPage = {
         const rowsData = this.getFiltered();
         const esc = MappingSubdistStore.esc;
 
-        document.getElementById('subdistCountLabel').textContent =
-            `${rowsData.length} parent` + (rowsData.length !== this.data.filter(d => d.parent === 'YA').length
-                ? ` (terfilter)`
-                : '');
+        document.getElementById('subdistCountLabel').textContent = rowsData.length + ' data';
 
         const rows = rowsData.map(d => {
-            const groupBadge = d.groupType === 'Group'
-                ? '<span class="badge bg-label-primary">Group</span>'
-                : '<span class="badge bg-label-warning">Non Group</span>';
-            const inactive = d.active === false
-                ? ' <span class="badge bg-label-danger">Nonaktif</span>'
-                : '';
-            const kodeLink = `<a href="${MappingSubdistStore.formUrl(d.id)}"><code>${esc(d.kodeKmmd)}</code></a>`;
-
+            const kodeLink = `<a href="${MappingSubdistStore.formUrl(d.id)}">${esc(d.kodeKmmd)}</a>`;
             return [
                 kodeLink,
-                `<span class="fw-semibold">${esc(d.namaKmmd)}</span>${inactive}`,
-                groupBadge,
+                esc(d.namaKmmd),
+                esc(d.groupType),
                 esc(d.namaGroup),
                 esc(d.region),
                 String(this.childCount(d)),
@@ -94,6 +86,7 @@ const MappingSubdistPage = {
 
         this.table = DfDataTable.init('#tblMappingSubdist', {
             data: rows,
+            pageLength: 10,
             columns: [
                 { orderable: true },
                 { orderable: true },

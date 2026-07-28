@@ -396,15 +396,15 @@ const MappingSubdistStore = {
             title: title || 'Konfirmasi',
             text,
             showCancelButton: true,
-            confirmButtonText: 'Ya, lepas',
+            confirmButtonText: 'Ya, Lepas',
             cancelButtonText: 'Batal',
             customClass: {
-                confirmButton: 'btn btn-danger me-2',
-                cancelButton: 'btn btn-label-secondary'
+                confirmButton: 'btn btn-danger',
+                cancelButton: 'btn btn-outline-secondary ms-1'
             },
             buttonsStyling: false
         });
-        return !!result.isConfirmed;
+        return !!(result.isConfirmed || result.value);
     },
 
     esc: function (v) {
