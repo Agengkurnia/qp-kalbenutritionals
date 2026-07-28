@@ -17,22 +17,22 @@
         <div class="card mb-4">
             <div class="card-body">
                 <div class="row g-3 align-items-end">
-                    <div class="col-md-5">
+                    <div class="col-md-4">
                         <label class="form-label" for="filterRegion">Region</label>
-                        <select id="filterRegion" class="form-select">
+                        <select id="filterRegion" class="form-select form-select-sm">
                             <option value="">Semua Region</option>
                         </select>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label" for="filterGroupType">Group / Non Group</label>
-                        <select id="filterGroupType" class="form-select">
+                        <select id="filterGroupType" class="form-select form-select-sm">
                             <option value="">Semua</option>
                             <option value="Group">Group</option>
                             <option value="Non Group">Non Group</option>
                         </select>
                     </div>
-                    <div class="col-md-3">
-                        <button type="button" id="btnAddSubdist" class="btn btn-primary w-100">
+                    <div class="col-md-4 d-flex justify-content-end gap-2">
+                        <button type="button" id="btnAddSubdist" class="btn btn-success btn-sm">
                             <i class="fas fa-plus me-1"></i> Tambah
                         </button>
                     </div>
@@ -50,15 +50,13 @@
                     <table class="table table-bordered table-hover table-sm align-middle w-100 df-dt-grid" id="tblMappingSubdist" style="width:100%">
                         <thead>
                             <tr>
-                                <th>Kode KMMD (Bosnet)</th>
+                                <th>Kode KMMD</th>
                                 <th>Nama KMMD</th>
-                                <th>Titik</th>
                                 <th>Group</th>
                                 <th>Nama Group</th>
-                                <th>Branch EPM</th>
                                 <th>Region</th>
-                                <th>Tipe</th>
-                                <th class="text-center">Aksi</th>
+                                <th>Child</th>
+                                <th>Activity</th>
                             </tr>
                         </thead>
                         <tbody></tbody>

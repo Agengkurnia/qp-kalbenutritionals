@@ -6,9 +6,9 @@
 | **Dokumen** | FSD Master Data (bagian 1) |
 | **Produk** | Development Fund Subdist — Kalbe Nutritionals (SHP) |
 | **Sistem** | **MAVEN** (setting master) |
-| **Versi** | 0.3 (draft dari prototype) |
-| **Tanggal** | 24 Juli 2026 |
-| **Sumber** | Prototype `QP Kalbe Nutritionals` + `Documentation/business-documentation.md` |
+| **Versi** | 0.4 (aligned MAVEN `/DF/MappingSubdist`) |
+| **Tanggal** | 28 Juli 2026 |
+| **Sumber** | Prototype `QP Kalbe Nutritionals` + implementasi MAVEN + `Documentation/business-documentation.md` |
 | **Status** | Draft untuk kepentingan penyusunan FSD formal |
 
 > Dokumen ini mendeskripsikan **fungsi master data** yang sudah / sedang dilayani di prototype MAVEN. Bagian Transaction (Memo QP, Monitoring Claim EPM, Inject DF) akan dilanjutkan di dokumen FSD terpisah.
@@ -92,53 +92,55 @@ Modul untuk:
 1. User membuka Master → Mapping Subdist.
 2. Sistem menampilkan **hanya record Parent** (`Parent = YA`).
 3. User dapat memfilter **Region** dan **Group / Non Group**.
-4. User membuka detail via tombol aksi (edit / view sesuai role).
+4. User membuka detail via **klik Kode KMMD** pada baris (hyperlink). Tidak ada kolom / tombol Aksi Edit terpisah.
 
 **Aturan:**
 - Child **tidak** ditampilkan di index.
-- Tombol **Delete tidak tersedia** di index (hapus fisik tidak didukung di UI prototype).
+- Tombol **Delete tidak tersedia** di index (hapus fisik tidak didukung di UI).
+- Kolom **Titik** tidak ditampilkan di index.
 
 **Kolom list (informasi):**
 
 | Kolom | Keterangan |
 |-------|------------|
-| Kode KMMD | Kode Bosnet |
-| Nama | Nama KMMD + badge Parent / Nonaktif bila relevan |
-| Titik | Titik distribusi |
+| Kode KMMD | Kode Bosnet (`SubdistID`); link ke Detail |
+| Nama KMMD | Nama Subdist / KMMD |
 | Group | Badge Group / Non Group |
 | Nama Group | Nama joint group |
-| Branch EPM | Nama branch EPM |
 | Region | Region |
-| Tipe | Tipe KMMD |
-| Aksi | Detail saja |
+| Child | Jumlah child ter-mapping |
+| Activity | Jumlah activity ter-mapping |
 
 ---
 
 #### UC-MD-02 — Tambah Subdist Parent
 
 **Aktor:** Administrator, CSD / RAS.  
-**Prekondisi:** Akses edit.
+**Prekondisi:** Akses edit.  
+**Route MAVEN:** `/DF/MappingSubdist/Detail`
 
 **Alur utama:**
 1. User klik **Tambah**.
-2. User membuka LOV **Kode KMMD (Bosnet)** dan memilih satu KMMD.
-3. Sistem mengisi otomatis (read-only): Nama KMMD, Titik, Tipe KMMD, Region, Kode Branch EPM, Branch EPM.
+2. User membuka LOV **Kode KMMD (Bosnet)** (`vw_Outlet_Bosnet` via ConsoDWH) dan memilih satu baris.
+3. Sistem mengisi otomatis (**disabled** / tidak bisa diketik): Kode KMMD (`SubdistID`), Nama KMMD (`SubdistName`), Tipe KMMD (`TypeSubDistID`), Region, Kode Branch EPM (`BranchESI`), Branch EPM (`BranchNameESI`), Alamat (`Address` — masih editable).
 4. User mengisi **Tipe Group** (Group / Non Group).
-5. Jika Group: user set **Parent = YA** (untuk mode parent) dan **Nama Group**.
-6. Jika Non Group: sistem memaksa peran Parent; Nama Group = `Non Group`.
-7. User dapat mengisi Alamat dan status Aktif.
-8. User Simpan.
+5. Jika Group: user mengisi **Nama Group**.
+6. User dapat mengubah Alamat dan status Aktif.
+7. User Simpan.
 
 **Aturan bisnis:**
-- Identitas KMMD **hanya dari Bosnet** (tidak diketik manual).
-- LOV Bosnet **tidak menampilkan** KMMD yang sudah ada di mapping.
-- Setelah tersimpan / mode edit: identitas Bosnet + toggle Parent **terkunci**.
+- Identitas KMMD **hanya dari Bosnet** (tidak diketik manual); field identitas memakai kontrol **disabled** (bukan readonly) agar visual jelas non-editable.
+- Placeholder identitas: **Autopopulate** (tanpa menyebut nama kolom sumber).
+- Field **Titik** dihapus dari UI (tidak ada di view Bosnet production).
+- LOV Bosnet **tidak menampilkan** SubdistID yang sudah ada di mapping (`bolActive`).
+- LOV Bosnet: DataTables + pagination; kolom Action di kiri; Active ditampilkan badge `true`/`false`.
+- Setelah tersimpan / mode edit: identitas Bosnet terkunci; LOV disembunyikan/disabled.
 - Field NPWP / PPN / PPh **tidak ada**.
 
-**Validasi (prototype):**
-- Kode KMMD, Nama, Titik, Tipe, Region wajib terisi (via LOV).
+**Validasi:**
+- Kode KMMD + Nama wajib (via LOV).
 - Tipe Group wajib.
-- Jika Group: Nama Group wajib (boleh dari datalist nama group yang sudah ada).
+- Jika Group: Nama Group wajib.
 
 ---
 
@@ -147,34 +149,35 @@ Modul untuk:
 **Aktor:** Administrator, CSD / RAS.
 
 **Alur:**
-1. User buka detail dari index.
-2. Field identitas Bosnet read-only; LOV Kode KMMD disembunyikan.
-3. User dapat mengubah Group (sesuai aturan UI), Alamat, Aktif, serta mapping child/activity bila mode Parent.
-4. User Simpan.
+1. User buka detail dari index (klik Kode KMMD).
+2. Field identitas Bosnet **disabled**; LOV Kode KMMD disabled.
+3. User dapat mengubah Group, Nama Group, Alamat, Aktif, serta mapping child/activity.
+4. User Simpan. Tombol **Kembali** / **Simpan** memakai ikon.
 
 ---
 
 #### UC-MD-04 — Mapping Child (Parent–Child)
 
 **Aktor:** Administrator, CSD / RAS.  
-**Prekondisi:** Record dalam **mode Parent** (Group + Parent YA, atau Non Group). Parent sudah tersimpan (auto-save bila perlu sebelum Add).
+**Prekondisi:** Parent sudah tersimpan.  
+**UI:** Tab Mapping Child memakai DataTables (pagination + empty state). Kolom: **Action** (kiri, tombol Lepas + ikon), Kode KMMD, Nama KMMD, Linked At.
 
-**Alur tambah child:**
-1. Pada tab **Mapping Child**, user klik **Add**.
-2. Jika parent belum tersimpan, sistem menyimpan dulu.
-3. Popup menampilkan kandidat dari **Bosnet** + pilihan **periode berlaku**:
-   - **Bulan saat ini** — link berlaku dari awal bulan berjalan; tanpa CSV.
-   - **Periode sebelumnya** — user pilih **satu nama bulan** (sebelum bulan berjalan) dan **wajib upload** file CSV format **LISTING_CLAIM** (sama seperti Monitoring Claim EPM).
-4. User multi-select child lalu konfirmasi.
-5. Jika historis: sistem parse CSV → validasi identity branch/child → **preview impact** (total, inject ke BI mock, mines) → user setuju.
-6. Sistem menautkan child (`parent = TIDAK`, `parentKode` = parent) dengan `linkedAt` = **awal bulan efektif** (`YYYY-MM-01`). Historis: catat mutasi inject mock BI untuk bulan itu (memengaruhi total DF).
+**Alur tambah child (MAVEN production — tanpa CSV historis di fase ini):**
+1. Pada tab **Mapping Child**, user klik **Add** (ikon plus).
+2. Popup DataTables menampilkan kandidat dari **`vw_Outlet_Bosnet`** (Active = true; exclude yang sudah ter-mapping).
+3. User multi-select child lalu **Tambahkan**.
+4. Sistem menautkan child (`bolIsParent = false`, `refParent…` = parent) dengan `dtLinkedAt` = tanggal hari ini.
 
-**Filter kandidat popup (penting):**
+**Alur lepas child:**
+1. User klik **Lepas** → konfirmasi **SweetAlert** (bukan `confirm` browser).
+2. Soft unlink (`bolActive = false`).
+
+**Filter kandidat popup:**
 
 | Ditampilkan | Tidak ditampilkan |
 |-------------|-------------------|
-| KMMD Bosnet yang **belum ada di mapping** | Diri sendiri (parent yang dibuka) |
-| | Yang **sudah jadi child** (punya parent) |
+| Outlet Bosnet aktif yang **belum ada di mapping** | Diri sendiri (parent yang dibuka) |
+| | Yang **sudah jadi parent/child** aktif |
 | | Yang **Non Group** (standalone) |
 | | Parent **Group** lain |
 | | Child yang **sudah ter-link** ke parent ini |
@@ -237,9 +240,12 @@ Modul untuk:
 | BR-MD-03 | Satu `kodeKmmd` hanya boleh sekali di mapping. |
 | BR-MD-04 | Group Parent dan Non Group sama-sama dapat memetakan child & activity. |
 | BR-MD-05 | Kandidat child popup = belum punya parent dan bukan Non Group / Parent Group lain. |
-| BR-MD-06 | Lepas child/activity wajib konfirmasi user. |
-| BR-MD-07 | Tidak ada delete record dari index (prototype). |
-| BR-MD-08 | NPWP / PPN / PPh tidak dikelola di form Mapping Subdist (revisi prototype). |
+| BR-MD-06 | Lepas child/activity wajib konfirmasi **SweetAlert**. |
+| BR-MD-07 | Tidak ada delete record dari index; tidak ada kolom Aksi Edit di index (navigasi via Kode KMMD). |
+| BR-MD-08 | NPWP / PPN / PPh tidak dikelola di form Mapping Subdist. |
+| BR-MD-19 | Field identitas Bosnet ditampilkan **disabled**; placeholder **Autopopulate**. |
+| BR-MD-20 | Field Titik dihapus dari UI Index/Detail (tidak tersedia di `vw_Outlet_Bosnet`). |
+| BR-MD-21 | LOV Bosnet / grid Child / Activity / popup pick memakai DataTables + pagination + empty state. |
 | BR-MD-09 | Lepas child dengan dampak: wizard wajib; efektif lepas = hari ini (fixed); koreksi = bulan dari–sampai. |
 | BR-MD-10 | Rentang bulan koreksi hanya dalam masa child ter-link s/d bulan berjalan; di luar → ditolak. |
 | BR-MD-11 | Unmap dengan dampak hanya setelah mutasi koreksi BI (mock) sukses (atomic). |
@@ -260,13 +266,13 @@ Modul untuk:
 | Atribut | Tipe / contoh | Sumber | Keterangan |
 |---------|---------------|--------|------------|
 | `id` | string | Sistem / = kodeKmmd | Identifier |
-| `kodeKmmd` | string | Bosnet | PK bisnis |
-| `namaKmmd` | string | Bosnet | |
-| `titik` | string | Bosnet | |
-| `tipeKmmd` | KMMD-B / C / BVG | Bosnet | |
-| `region` | string | Bosnet | |
-| `kodeBranch` | string | Bosnet | Kode branch EPM |
-| `branchEpm` | string | Bosnet | Nama branch EPM |
+| `kodeKmmd` | string | Bosnet `SubdistID` | PK bisnis |
+| `namaKmmd` | string | Bosnet `SubdistName` | |
+| `tipeKmmd` | string | Bosnet `TypeSubDistID` | |
+| `region` | string | Bosnet `Region` | |
+| `kodeBranch` | string | Bosnet `BranchESI` | Kode branch EPM |
+| `branchEpm` | string | Bosnet `BranchNameESI` | Nama branch EPM |
+| `alamat` | string | Bosnet `Address` | Editable setelah autofill |
 | `groupType` | Group \| Non Group | User | |
 | `parent` | YA \| TIDAK | User / sistem | YA = tampil di index |
 | `parentKode` | string \| null | Sistem | Diisi jika child |
@@ -401,6 +407,7 @@ Untuk kelengkapan FSD formal, kebutuhan bisnis (dari dokumen project):
 | 0.1 | 24 Jul 2026 | Draft awal FSD Master Data dari prototype (fokus Mapping Subdist) |
 | 0.2 | 24 Jul 2026 | UC-MD-04b lepas child + periode koreksi; BR-MD-09..13; `linkedAt` |
 | 0.3 | 24 Jul 2026 | Add child periode + CSV historis; lepas koreksi per bulan; BR-MD-14..18 |
+| 0.4 | 28 Jul 2026 | Index tanpa kolom Aksi/Edit (navigasi via Kode KMMD); Titik dihapus dari UI; LOV Bosnet `vw_Outlet_Bosnet`; field identitas disabled + Autopopulate; Action kiri + DataTables/SweetAlert di Child/Activity; aligned MAVEN `/DF/MappingSubdist` |
 
 ---
 

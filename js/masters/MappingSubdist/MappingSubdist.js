@@ -1,5 +1,6 @@
 /**
  * List page — Master Mapping Subdist
+ * Aligned with MAVEN /DF/MappingSubdist Index (no Aksi column; open via Kode KMMD link)
  */
 const MappingSubdistPage = {
     data: [],
@@ -50,10 +51,20 @@ const MappingSubdistPage = {
         });
     },
 
+    childCount: function (parent) {
+        return MappingSubdistStore.getChildren(parent).length;
+    },
+
+    activityCount: function (parent) {
+        const acts = MappingSubdistStore.getMappedActivities
+            ? MappingSubdistStore.getMappedActivities(parent)
+            : (parent.activities || []);
+        return Array.isArray(acts) ? acts.length : 0;
+    },
+
     render: function () {
         this.data = MappingSubdistStore.load();
         const rowsData = this.getFiltered();
-        const canEdit = MappingSubdistStore.canEdit();
         const esc = MappingSubdistStore.esc;
 
         document.getElementById('subdistCountLabel').textContent =
@@ -62,32 +73,22 @@ const MappingSubdistPage = {
                 : '');
 
         const rows = rowsData.map(d => {
-            const parentBadge = '<span class="badge bg-label-success ms-2">Parent</span>';
             const groupBadge = d.groupType === 'Group'
                 ? '<span class="badge bg-label-primary">Group</span>'
                 : '<span class="badge bg-label-warning">Non Group</span>';
             const inactive = d.active === false
                 ? ' <span class="badge bg-label-danger">Nonaktif</span>'
                 : '';
-
-            const actions = canEdit
-                ? `<a class="btn btn-sm btn-icon btn-outline-primary" title="Detail" href="${MappingSubdistStore.formUrl(d.id)}">
-                        <i class="fas fa-edit"></i>
-                   </a>`
-                : `<a class="btn btn-sm btn-icon btn-outline-secondary" title="Detail" href="${MappingSubdistStore.formUrl(d.id)}">
-                        <i class="fas fa-eye"></i>
-                   </a>`;
+            const kodeLink = `<a href="${MappingSubdistStore.formUrl(d.id)}"><code>${esc(d.kodeKmmd)}</code></a>`;
 
             return [
-                `<code>${esc(d.kodeKmmd)}</code>`,
-                `<span class="fw-semibold">${esc(d.namaKmmd)}</span>${parentBadge}${inactive}`,
-                esc(d.titik),
+                kodeLink,
+                `<span class="fw-semibold">${esc(d.namaKmmd)}</span>${inactive}`,
                 groupBadge,
                 esc(d.namaGroup),
-                `${esc(d.branchEpm)} <small class="text-muted">(${esc(d.kodeBranch)})</small>`,
                 esc(d.region),
-                esc(d.tipeKmmd),
-                `<div class="text-center text-nowrap">${actions}</div>`
+                String(this.childCount(d)),
+                String(this.activityCount(d))
             ];
         });
 
@@ -100,9 +101,7 @@ const MappingSubdistPage = {
                 { orderable: true },
                 { orderable: true },
                 { orderable: true },
-                { orderable: true },
-                { orderable: true },
-                { orderable: false, searchable: false, className: 'text-center' }
+                { orderable: true }
             ],
             order: [[1, 'asc']],
             language: Object.assign({}, DfDataTable.language, {

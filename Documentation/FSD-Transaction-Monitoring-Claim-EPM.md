@@ -13,6 +13,10 @@
 
 > Halaman ini **memantau realisasi LISTING_CLAIM dari EPM** per SubDist yang sudah ter-mapping.  
 > **Refresh = fetch file saja** — tidak meng-apply / inject saldo DF ke BI dari layar ini.
+>
+> **Catatan implementasi (Jul 2026):** ingest production dipindah ke **MAVEN** (Hangfire + PostgreSQL).  
+> Lihat [`Claim-EPM-Sync-MAVEN.md`](./Claim-EPM-Sync-MAVEN.md) dan script di [`Script SQL/`](./Script%20SQL/).  
+> Prototype lokal/Vercel (JSON blob) tetap relevan sebagai referensi UI; sumber data production = table MAVEN.
 
 ---
 

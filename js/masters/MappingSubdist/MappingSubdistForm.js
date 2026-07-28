@@ -166,28 +166,30 @@ const MappingSubdistForm = {
         const $ = window.jQuery;
 
         const rows = list.map(c => [
-            `<code>${esc(c.kodeKmmd)}</code>`,
-            esc(c.namaKmmd),
-            esc(c.titik),
-            esc(c.region),
-            esc(c.tipeKmmd),
             `<div class="text-center">
                 <button type="button" class="btn btn-sm btn-primary btn-pick-bosnet" data-kode="${esc(c.kodeKmmd)}">Pilih</button>
-             </div>`
+             </div>`,
+            esc(c.outletId || c.kodeKmmd),
+            esc(c.outletName || c.namaKmmd),
+            `<code>${esc(c.kodeKmmd)}</code>`,
+            esc(c.namaKmmd),
+            (c.active === false || c.active === 0)
+                ? '<span class="badge bg-secondary">false</span>'
+                : '<span class="badge bg-success">true</span>'
         ]);
 
         this.bosnetTable = DfDataTable.init('#tblBosnetLov', {
             data: rows,
             columns: [
+                { orderable: false, searchable: false, className: 'text-center' },
                 { orderable: true },
                 { orderable: true },
                 { orderable: true },
                 { orderable: true },
-                { orderable: true },
-                { orderable: false, searchable: false, className: 'text-center' }
+                { orderable: true, className: 'text-center' }
             ],
             language: Object.assign({}, DfDataTable.language, {
-                emptyTable: 'Semua Kode KMMD Bosnet sudah terdaftar'
+                emptyTable: 'Tidak ada data / semua sudah terdaftar'
             })
         });
 
@@ -212,11 +214,13 @@ const MappingSubdistForm = {
 
         document.getElementById('fldKodeKmmd').value = src.kodeKmmd || '';
         document.getElementById('fldNamaKmmd').value = src.namaKmmd || '';
-        document.getElementById('fldTitik').value = src.titik || '';
-        document.getElementById('fldTipeKmmd').value = src.tipeKmmd || 'KMMD-B';
+        document.getElementById('fldTipeKmmd').value = src.tipeKmmd || src.typeSubDistId || '';
         document.getElementById('fldRegion').value = src.region || '';
-        document.getElementById('fldKodeBranch').value = src.kodeBranch || '';
-        document.getElementById('fldBranchEpm').value = src.branchEpm || '';
+        document.getElementById('fldKodeBranch').value = src.kodeBranch || src.branchEsi || '';
+        document.getElementById('fldBranchEpm').value = src.branchEpm || src.branchNameEsi || '';
+        if (src.alamat || src.address) {
+            document.getElementById('fldAlamat').value = src.alamat || src.address || '';
+        }
 
         // Peran dari master Bosnet, lalu dikunci
         this.setParentChoice(src.parent === 'TIDAK' ? 'TIDAK' : 'YA');
@@ -309,7 +313,7 @@ const MappingSubdistForm = {
             title.textContent = 'Tambah';
             subtitle.textContent = 'Pilih Kode KMMD dari Bosnet, lalu lengkapi Group.';
             document.getElementById('fldGroupType').value = '';
-            document.getElementById('fldTipeKmmd').value = 'KMMD-B';
+            document.getElementById('fldTipeKmmd').value = '';
             this.setParentChoice('YA');
             this.bosnetLocked = false;
             return;
@@ -329,8 +333,7 @@ const MappingSubdistForm = {
         document.getElementById('fldKodeKmmd').value = item.kodeKmmd || '';
         document.getElementById('fldNamaKmmd').value = item.namaKmmd || '';
         this.setParentChoice(item.parent || 'YA');
-        document.getElementById('fldTitik').value = item.titik || '';
-        document.getElementById('fldTipeKmmd').value = item.tipeKmmd || 'KMMD-B';
+        document.getElementById('fldTipeKmmd').value = item.tipeKmmd || '';
         document.getElementById('fldGroupType').value = item.groupType || 'Group';
         document.getElementById('fldRegion').value = item.region || '';
         document.getElementById('fldNamaGroup').value = item.namaGroup || '';
@@ -459,7 +462,7 @@ const MappingSubdistForm = {
             parent: document.getElementById('fldParent').value,
             kodeKmmd: kode,
             namaKmmd: document.getElementById('fldNamaKmmd').value.trim(),
-            titik: document.getElementById('fldTitik').value.trim(),
+            titik: '',
             groupType: document.getElementById('fldGroupType').value,
             namaGroup: document.getElementById('fldNamaGroup').value.trim(),
             namaSubdistGroup: document.getElementById('fldGroupType').value === 'Non Group'
@@ -489,36 +492,26 @@ const MappingSubdistForm = {
             const unlinkBtn = this.readOnly
                 ? ''
                 : `<button type="button" class="btn btn-sm btn-outline-danger btn-unlink-child"
-                    data-id="${esc(c.id)}" data-name="${esc(c.namaKmmd || c.kodeKmmd)}">Lepas</button>`;
-            const statusBadge = c.active === false
-                ? '<span class="badge bg-label-danger">Non Active</span>'
-                : '<span class="badge bg-label-success">Active</span>';
+                    data-id="${esc(c.id)}" data-name="${esc(c.namaKmmd || c.kodeKmmd)}"><i class="fas fa-unlink me-1"></i>Lepas</button>`;
+            const linked = c.linkedAt || c.dtLinkedAt || '';
             return [
+                `<div class="text-center text-nowrap">${unlinkBtn}</div>`,
                 `<code>${esc(c.kodeKmmd)}</code>`,
-                `<code>${esc(c.kodeBranch)}</code>`,
                 esc(c.namaKmmd),
-                esc(c.titik),
-                esc(c.tipeKmmd),
-                esc(c.branchEpm),
-                statusBadge,
-                `<div class="text-center text-nowrap">${unlinkBtn}</div>`
+                esc(linked ? String(linked).substring(0, 10) : '')
             ];
         });
 
         this.childTable = DfDataTable.init('#tblChild', {
             data: rows,
             columns: [
+                { orderable: false, searchable: false, className: 'text-center' },
                 { orderable: true },
                 { orderable: true },
-                { orderable: true },
-                { orderable: true },
-                { orderable: true },
-                { orderable: true },
-                { orderable: true },
-                { orderable: false, searchable: false, className: 'text-center' }
+                { orderable: true }
             ],
             language: Object.assign({}, DfDataTable.language, {
-                emptyTable: 'Belum ada child'
+                emptyTable: 'Belum ada child. Klik Add untuk memilih dari Bosnet.'
             })
         });
 
@@ -771,11 +764,13 @@ const MappingSubdistForm = {
             `<div class="text-center">
                 <input type="checkbox" class="form-check-input chk-orphan" value="${esc(c.kodeKmmd)}">
              </div>`,
+            esc(c.outletId || c.kodeKmmd),
+            esc(c.outletName || c.namaKmmd),
             `<code>${esc(c.kodeKmmd)}</code>`,
             esc(c.namaKmmd),
-            esc(c.titik),
-            esc(c.region),
-            esc(c.tipeKmmd)
+            (c.active === false || c.active === 0)
+                ? '<span class="badge bg-secondary">false</span>'
+                : '<span class="badge bg-success">true</span>'
         ]);
 
         this.orphanTable = DfDataTable.init('#tblOrphan', {
@@ -786,10 +781,10 @@ const MappingSubdistForm = {
                 { orderable: true },
                 { orderable: true },
                 { orderable: true },
-                { orderable: true }
+                { orderable: true, className: 'text-center' }
             ],
             language: Object.assign({}, DfDataTable.language, {
-                emptyTable: 'Tidak ada kandidat dari Bosnet API.'
+                emptyTable: 'Tidak ada kandidat child / semua sudah ter-mapping'
             })
         });
 
@@ -1057,27 +1052,25 @@ const MappingSubdistForm = {
             const unlinkBtn = this.readOnly
                 ? ''
                 : `<button type="button" class="btn btn-sm btn-outline-danger btn-unlink-activity"
-                    data-id="${esc(a.id || a.kode)}" data-name="${esc(a.nama || a.kode)}">Lepas</button>`;
+                    data-id="${esc(a.id || a.kode)}" data-name="${esc(a.nama || a.kode)}"><i class="fas fa-unlink me-1"></i>Lepas</button>`;
             return [
+                `<div class="text-center text-nowrap">${unlinkBtn}</div>`,
                 `<code>${esc(a.kode)}</code>`,
                 esc(a.nama),
-                esc(a.kategori),
-                esc(a.deskripsi),
-                `<div class="text-center text-nowrap">${unlinkBtn}</div>`
+                esc(a.kategori)
             ];
         });
 
         this.activityTable = DfDataTable.init('#tblActivity', {
             data: rows,
             columns: [
+                { orderable: false, searchable: false, className: 'text-center' },
                 { orderable: true },
                 { orderable: true },
-                { orderable: true },
-                { orderable: true },
-                { orderable: false, searchable: false, className: 'text-center' }
+                { orderable: true }
             ],
             language: Object.assign({}, DfDataTable.language, {
-                emptyTable: 'Belum ada activity'
+                emptyTable: 'Belum ada activity. Klik Add untuk memilih dari Master Activity.'
             })
         });
 
@@ -1241,7 +1234,7 @@ const MappingSubdistForm = {
             MappingSubdistStore.toast('warning', 'Pilih Kode KMMD dari Bosnet dulu');
             return false;
         }
-        if (!payload.namaKmmd || !payload.titik || !payload.region) {
+        if (!payload.namaKmmd) {
             MappingSubdistStore.toast('warning', 'Lengkapi identitas wajib');
             return false;
         }
