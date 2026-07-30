@@ -3,38 +3,39 @@
 
 | | |
 |---|---|
-| **Versi dokumen** | 1.1 |
-| **Tanggal update** | 22 Juli 2026 |
-| **Sumber utama** | `Document/2026.07.21-Project Development Fund Subdist.pdf` |
-| **Sumber pendukung** | `Document/TimeLine_DevelopmentFund.xlsx` |
+| **Versi dokumen** | 1.2 |
+| **Tanggal update** | 30 Juli 2026 |
+| **Sumber utama** | `Document/2026.07.30-Development Fund KN - Subdist.pdf` (Objectives, Mekanisme, Creating Demand, Rules) |
+| **Sumber pendukung** | `Document/2026.07.21-Project Development Fund Subdist.pdf`, `Document/TimeLine_DevelopmentFund.xlsx` |
+| **Lampiran terkait** | [Creating-Demand-MPP-Rules.md](./Creating-Demand-MPP-Rules.md) |
 | **Tujuan dokumen** | Menjelaskan bisnis Development Fund Subdist dengan bahasa yang mudah dipahami, termasuk untuk pembaca non-teknis, plus peta sistem IT tempat fitur di-develop |
 
 ---
 
 ## 1. Ringkasan Singkat (Bisa Dibaca dalam 1 Menit)
 
-Kalbe Nutritionals (**SHP / KN**) ingin mengelola dana yang disebut **Development Fund (DF)** untuk mendukung aktivitas penjualan di tingkat **Subdist** (sub-distributor).
+Kalbe Nutritionals (**SHP / KN**) mengelola **Development Fund (DF)** — mekanisme pembiayaan yang **terkontrol dan kolaboratif** untuk mendukung pengembangan pasar (**Creating Demand**) serta **mempercepat pembayaran** biaya dari KN kepada **Subdist**.
 
-Dana tersebut **berasal dari Enseval Putera Megatrading (EPM)** — perusahaan satu grup Kalbe — melalui mekanisme **QP** (pengaturan discount/promo di sisi EPM).
+Dana DF terbentuk dari **tambahan diskon 5%–30% on faktur** (berdasarkan HNA penjualan EPM ke Subdist). Diskon itu adalah dana **milik KN**, dikelola secara operasional di Subdist sesuai kesepakatan (**Creating Demand**), lalu dipakai untuk program tertentu lewat surat **MPP (Marketing Project Plan)**.
 
 Alur besarnya:
 
-1. EPM menyediakan dana (via QP / special discount).
-2. Master & QP di-setting di **MAVEN**.
-3. Dana masuk sebagai saldo DF di **BI (Budget Integration)**.
-4. KN (CCD) membuat memo activity agar dana boleh dipakai.
-5. Subdist mengajukan **klaim** di **KICAO KDS**.
-6. KN memverifikasi & menyetujui secara berjenjang.
-7. Saldo DF di **BI** berkurang (terpotong) setelah proses klaim/matching.
-8. Tim FA / CCD / EPM melakukan **rekonsiliasi** agar angka tetap cocok.
+1. KN meminta setting diskon Subdist ke **EPM**; EPM memberi diskon **5%–30%** → mengisi **Saldo DF**.
+2. Master & QP / kesepakatan di-setting di **MAVEN**; saldo tercatat di **BI (Budget Integration)**.
+3. KN menerbitkan dasar pemakaian program (**MPP** / MKPP Type DF).
+4. Subdist membayar activity lalu mengajukan **Payment Approval (PA)** / klaim di **KICAO KDS**.
+5. KN memverifikasi & menyetujui secara berjenjang (User KN → ABM → HO).
+6. **Saldo DF dipotong hanya setelah PA approved** (di BI / komunikasi KICAO KN).
+7. Tim FA / CCD / EPM melakukan **rekonsiliasi** Saldo DF agar angka tetap cocok.
+8. Sisa saldo akhir tahun **carry over** ke tahun berikutnya.
 
 **Tiga sistem utama (sisi IT):**
 
 | Sistem | Peran singkat |
 |--------|----------------|
-| **MAVEN** | Setting master & QP |
+| **MAVEN** | Setting master & QP / dukungan data DF |
 | **BI (Budget Integration)** | Terima budget (saldo masuk) & potong budget (saldo keluar) |
-| **KICAO KDS** | Proses klaim |
+| **KICAO KDS / KICAO KN** | Klaim, MPP/MKPP, Payment Approval, komunikasi saldo |
 
 ---
 
@@ -86,18 +87,21 @@ Istilah diurutkan agar mudah dicari.
 | **EPM** | Enseval Putera Megatrading — perusahaan distribusi di Kalbe Group |
 | **Kalbe Group** | Grup perusahaan yang menaungi SHP/KN dan EPM |
 | **Subdist** | Sub-distributor; mitra yang mendistribusikan produk di area tertentu |
-| **DF / Development Fund** | Dana pengembangan untuk activity subdist; dikelola per subdist |
+| **DF / Development Fund / DFKN** | Dana pengembangan Creating Demand per subdist; milik KN, dikelola operasional di Subdist sesuai kesepakatan |
+| **Creating Demand** | Surat/kesepakatan resmi KN→Subdist: dukungan DF, pembiayaan, dan besaran tambahan diskon (lihat lampiran) |
+| **MPP / Marketing Project Plan** | Surat resmi KN→Subdist untuk membayar program tertentu memakai dana DF; pemakaian DF wajib berdasar MPP |
+| **Payment Approval (PA)** | Mekanisme approval pembayaran program; **pemotongan Saldo DF hanya setelah PA approved** |
 | **QP** | Mekanisme/instruksi promo-discount di sisi EPM yang menghasilkan sumber dana DF (biasanya di-setting per subdist di Oracle/ETPM) |
 | **ETPM** | Sistem Trade Promotion Management di EPM; tempat QP dijalankan/dilaporkan |
-| **Special Discount** | Margin/dana di EPM yang terbentuk dari setup harga selling-in; sumber utama DF |
+| **Special Discount / Diskon tambahan** | Margin/dana di EPM; pada deck 30 Jul dinyatakan sebagai **5%–30% on faktur** (HNA EPM ke Subdist) |
 | **Trade Discount** | Potongan perdagangan; dipakai saat menghitung net saldo (special discount dikurangi trade discount) |
 | **Net Saldo PL KND** | Hasil special discount dikurangi trade discount pada report PL KND EPM |
 | **Selling-in** | Penjualan dari principal/distributor ke subdist (bukan ke konsumen akhir) |
 | **Memo QP** | Memo dari CCD sebagai dasar EPM membuat/setting QP per subdist; ada proses create & close |
-| **Memo Activity / MKPP** | Memo resmi untuk memakai saldo DF pada activity tertentu |
+| **Memo Activity / MKPP** | Memo resmi untuk memakai saldo DF pada activity tertentu (di sistem KICAO; bisnis setara MPP) |
 | **MKPP Type DF** | Jenis MKPP khusus pemakaian Development Fund |
-| **Klaim** | Pengajuan penggantian biaya activity oleh subdist, lengkap dengan dokumen |
-| **Klaim Matching** | Proses sistem yang mencocokkan klaim; untuk transaksi DF **tidak push ke Oracle**, hanya memotong saldo DF di BI |
+| **Klaim** | Pengajuan penggantian biaya activity oleh subdist, lengkap dengan dokumen (masuk jalur PA) |
+| **Klaim Matching** | Proses sistem yang mencocokkan klaim; untuk transaksi DF **tidak push ke Oracle**, hanya memotong saldo DF di BI setelah PA approved |
 | **Saldo Awal** | Saldo DF di awal periode (biasanya dari akhir bulan sebelumnya) |
 | **Penambahan** | Mutasi plus ke saldo DF (mis. dari realisasi QP / inject DF) |
 | **Pengurangan** | Mutasi minus karena klaim (DPP + komponen lain, mis. 0,5%) |
@@ -116,7 +120,7 @@ Istilah diurutkan agar mudah dicari.
 | **Joint Group Subdist** | Relasi parent–child antar outlet/subdist (saldo DF bisa di-maintain di satu outlet grup) |
 | **Mapping Subdist** | Master relasi Parent vs Child dan Parent vs Activity |
 | **LOB / Z01** | Line of Business; untuk DF memakai All Brand / “glondongan” (kode Z01) |
-| **SLA** | Batas waktu layanan (mis. klaim 14 hari, validasi 7 hari, approve 7 hari) |
+| **SLA** | Batas waktu layanan PA: User KN **5 hari**, klaim Subdist **5 hari**, ABM **10 hari**, HO **10 hari** (deck 30 Jul 2026) |
 | **NKA** | National Key Account (disebut dalam konteks margin penjualan) |
 | **CCD** | Channel & Customer Development |
 | **FA** | Financial Accounting |
@@ -148,7 +152,7 @@ Sebelumnya, dana promo/discount dari EPM dan pemakaiannya di subdist sulit dikon
 - Rekonsiliasi antara EPM, KN, dan Subdist rawan selisih
 - Perlu jejak dokumen (memo, tagihan, approval) yang bisa diaudit
 
-Project ini membangun proses + sistem agar SHP bisa **mengelola saldo DF dari EPM** dengan kontrol, transparansi, dan alur approval yang jelas.
+Project ini membangun proses + sistem agar SHP bisa **mengelola saldo DF dari EPM** dengan kontrol, transparansi, dan alur approval yang jelas — sekaligus **mempercepat pembayaran** biaya Creating Demand dari KN kepada Subdist.
 
 ---
 
@@ -181,7 +185,7 @@ Dari sisi IT, Development Fund **tidak dibuat di satu aplikasi saja**. Fitur dip
 |--------|-------------|-------------------------------|
 | **MAVEN** | Setting **master** dan **QP** | Master Subdist, mapping parent–child, master Vendor (+ flag jalur klaim), Memo QP (create/close), setup terkait QP |
 | **BI (Budget Integration)** | **Terima** dan **potong** budget | Inject/terima saldo DF per subdist dari realisasi QP/EPM; maintain saldo; potong saldo saat klaim matching; monitoring mutasi; mekanisme resign/reclass |
-| **KICAO KDS** | Proses **klaim** | Create klaim (lampir dokumen, referensi MKPP), notifikasi sisa DF / boleh minus, tambahan 0,5% dari DPP |
+| **KICAO KDS / KICAO KN** | Proses **klaim**, **MPP/MKPP**, **Payment Approval**, komunikasi saldo | Create klaim (lampir dokumen, referensi MPP/MKPP), PA berjenjang, notifikasi sisa DF / boleh minus, fee 0,5% dari DPP, komunikasi Saldo DF (Rule deck 30 Jul) |
 
 ### 6.2 Alur antar sistem (cara awam)
 
@@ -196,15 +200,15 @@ Dari sisi IT, Development Fund **tidak dibuat di satu aplikasi saja**. Fitur dip
 
 ## 7. Dari Mana Uangnya Berasal? (Funding)
 
-Cara sederhana memahami sumber dana:
+Cara sederhana memahami sumber dana (diselaraskan deck 30 Jul + SOP sebelumnya):
 
-1. KN FA–Sales mengatur funding di EPM (setup harga selling-in).
-2. Setup tersebut menciptakan **special discount** (margin/dana) di EPM.
-3. Di **MAVEN**, CCD/tim terkait menyiapkan master subdist yang ikut program DF dan membuat **Memo QP**.
+1. KN mengajukan **Request Disc. Subdist** ke EPM (funding diatur FA–Sales / setup harga selling-in).
+2. EPM memberi **diskon tambahan 5%–30% on faktur** (berdasarkan HNA penjualan EPM ke Subdist) — ini mengisi Saldo DF.
+3. Di **MAVEN**, CCD/tim terkait menyiapkan master subdist yang ikut program DF dan membuat **Memo QP** / dukungan kesepakatan **Creating Demand**.
 4. EPM (ETPM/Oracle) membuat **QP per subdist** berdasarkan memo.
-5. Realisasi QP di-**inject / terima** di **BI (Budget Integration)** sebagai **Development Fund** per subdist.
-6. Saldo DF per subdist siap dipakai untuk activity (setelah aturan saldo “hijau” / bisa digunakan terpenuhi).
-7. Saat klaim di **KICAO KDS** selesai matching, **BI** memotong saldo.
+5. Realisasi QP/diskon di-**inject / terima** di **BI (Budget Integration)** sebagai **Development Fund** per subdist.
+6. Saldo DF per subdist siap dipakai untuk activity (setelah aturan saldo “hijau” / bisa digunakan terpenuhi) — secara operasional dana dikelola di Subdist, **kepemilikan tetap KN**.
+7. Setelah **Payment Approval** di jalur **KICAO** approved + matching, **BI** memotong saldo.
 
 **Prinsip funding (SOP):** funding hanya lewat 2 cara:
 
@@ -216,25 +220,27 @@ Cara sederhana memahami sumber dana:
 - Budget type = Development Fund
 - Spesifik per Subdist (mengikuti data EPM)
 - LOB bersifat glondongan / All Brand (**Z01**)
+- Range diskon tambahan di kesepakatan Creating Demand: **5%–30%**
 
 ---
 
 ## 8. Untuk Apa Dananya Dipakai? (Activity)
 
-Jenis activity yang didanai DF antara lain:
+Jenis activity Creating Demand yang didanai DF (deck 30 Jul + daftar sebelumnya):
 
 1. **SPG**
-2. **Listing**
-3. **Event**
-4. **Strata Harga**
-5. **Visibility**
+2. **E-Commerce Fee**
+3. **Visibility / Display**
+4. **Event Organizer**
+5. **Other Creating Demand Activities** (termasuk Listing, Strata Harga, dll. sesuai memo program)
 
 **Catatan praktis:**
 
+- Pemakaian DF **wajib** didasari surat **MPP Program** (dekat MKPP Type DF di KICAO).
 - 1 subdist bisa cover beberapa area (contoh: Bekasi cover Jawa Barat).
 - Transaksi besar jangka pendek (SPG, EO) sering kolaborasi dengan brand/event.
-- Setiap subdist diberi **0,5%** atas nilai transaksi yang keluar dari subdist (bukan dana cadangan diam di subdist).
-- Pada klaim, ada tambahan **0,5% (configurable)** dari angka DPP tagihan yang diinput.
+- Setiap Payment Approval / pembayaran activity dikenakan fee **0,5%** dari nilai program **sebelum PPN** (memotong sebagian saldo DF per activity).
+- Pada klaim di sistem, fee **0,5% (configurable)** dari angka DPP tagihan yang diinput.
 
 ---
 
@@ -255,22 +261,22 @@ Inject / terima Development Fund         ⟶  [BI]
         (saldo DF per Subdist)
 ```
 
-### 9.2 Fase B — Pakai dana (memo → klaim → bayar)
+### 9.2 Fase B — Pakai dana (MPP → klaim / PA → potong saldo)
 
 ```
-CCD buat Memo Activity (MKPP Type DF)
+CCD / KN buat MPP / Memo Activity (MKPP Type DF)
         ↓
 Activity jalan (Subdist / Vendor / pihak terkait)
         ↓
-Subdist / Admin input Klaim + lampiran  ⟶  [KICAO KDS]
+Subdist bayar lalu ajukan Klaim + Payment Approval  ⟶  [KICAO KDS]
         ↓
-(Opsional) KN User verifikasi tagihan jenis tertentu
+(Opsional) KN User / Business Owner verifikasi tagihan (SLA 5 hari)
         ↓
-ABM / Cabang: cek & approve
+ABM / Cabang: cek & approve (SLA 10 hari)
         ↓
-CF: verifikasi & approve payment
+HO / CF: verifikasi & approve payment (SLA 10 hari)
         ↓
-Klaim Matching → potong saldo DF         ⟶  [BI]
+PA Approved → Klaim Matching → potong saldo DF         ⟶  [BI]
         ↓
 (Catatan: transaksi DF tidak di-push ke Oracle)
 ```
@@ -280,7 +286,7 @@ Klaim Matching → potong saldo DF         ⟶  [BI]
 | Jalur | Contoh | Keterangan |
 |-------|--------|------------|
 | Vendor → KN dulu → Subdist | SPG, e-commerce | Perlu verifikasi KN User terlebih dahulu |
-| Vendor langsung ke Subdist | EO, Strata Harga | Bisa langsung ke subdist |
+| Vendor langsung ke Subdist | EO, Visibility | Bisa langsung ke subdist |
 
 Perbedaan ini diatur lewat **flag di Master Vendor** di **MAVEN** (klaim ke KN User atau ke Subdist). ABM dapat notifikasi terkait setup ini.
 
@@ -305,24 +311,32 @@ Dashboard / report mutasi & saldo per Subdist
 | No | Proses | Aturan singkat |
 |----|--------|----------------|
 | 1 | Activity Plan | Dibuat Sales + CCD; tidak double spending dengan MKT & Sales Expenses; horizon 3 bulan s.d. 1 tahun |
-| 2 | Funding EPM | Hanya via kenaikan garansi margin atau price increase |
-| 3 | Memo QP | Harus ada sebelum activity; sesuai list activity; perhitungkan % discount aman pajak; saran minimal per quarter |
+| 2 | Funding EPM | Hanya via kenaikan garansi margin atau price increase; diskon tambahan Creating Demand **5%–30% on faktur** |
+| 3 | Creating Demand / Memo QP | Harus ada kesepakatan & besaran diskon; sesuai list activity; perhitungkan % discount aman pajak |
 | 4 | Setting QP | Harus ada lead time realisasi dari tanggal memo (SLA) |
-| 5 | Maintain Saldo Subdist | Ada masa mengendap sebelum boleh dipakai; saldo “hijau” = bisa digunakan |
-| 6 | Memo Activity | Harus cek saldo tersedia; memakai Budget Type Development Fund |
-| 7 | Klaim Subdist | SLA **14 hari** setelah activity selesai / ditagihkan eksternal |
-| 8 | Validasi Dokumen | SLA **7 hari** |
-| 9 | Approve Payment | SLA **7 hari** |
-| 10 | Rekonsiliasi | Bulanan atau lebih sering |
+| 5 | Maintain Saldo Subdist | Ada masa mengendap sebelum boleh dipakai; saldo “hijau” = bisa digunakan; pengelolaan via komunikasi **KICAO KN** |
+| 6 | MPP / Memo Activity | Pemakaian DF **wajib** surat MPP Program; cek saldo tersedia; Budget Type Development Fund |
+| 7 | Klaim / PA — User KN | SLA **5 hari** setelah terima invoice |
+| 8 | Klaim Distributor / Subdist | SLA **5 hari** setelah terima invoice pihak ketiga atau setelah cek KN |
+| 9 | Approval ABM | SLA **10 hari** setelah pengajuan Distributor |
+| 10 | Approve HO KN (Payment) | SLA **10 hari** setelah approval ABM |
+| 11 | Potong Saldo DF | Hanya **setelah** Payment Approval **approved** |
+| 12 | Rekonsiliasi | Bulanan atau lebih sering; Saldo DF → Rekonsiliasi → KN |
+| 13 | Akhir tahun | Sisa saldo **Carry Over** ke tahun berikutnya (atau dibayar ke pihak ditunjuk KN per surat Creating Demand) |
 
-**Aturan tambahan dari keputusan meeting:**
+**Aturan tambahan (deck 30 Jul + keputusan meeting sebelumnya):**
 
-- Pemakaian DF (Memo) memakai **MKPP Type DF**.
-- MKPP **tidak wajib** merefer Memo Create QP; yang penting masih ada sisa saldo DF yang free.
+- Saldo DF adalah **dana KN** untuk Creating Demand sesuai kebutuhan.
+- Pemakaian memakai **MPP** / **MKPP Type DF**.
+- MKPP **tidak wajib** merefer Memo Create QP; yang penting masih ada sisa saldo DF yang free — tetapi **wajib** ada surat MPP Program.
 - MKPP/klaim **boleh minus**, tetapi sistem harus **memberi notifikasi** sisa dana DF, sisa memo, dan besaran minus.
 - LOB memakai **All Brand (Z01)**.
-- Perlu mekanisme **subdist resign** (reclass budget) dan perlakuan **saldo akhir tahun** (habiskan / carry over / opsi lain) — sebagian masih perlu diputuskan.
-- Memo manual bertanda tangan basah bisa multi-subdist; lampirannya template uploader yang menjadi MKPP per subdist.
+- Fee **0,5%** sebelum PPN per PA/activity.
+- Jika kerja sama berakhir: sisa saldo dikembalikan ke KN.
+- Perlu mekanisme **subdist resign** (reclass budget).
+- Memo manual bertanda tangan basah bisa multi-subdist; lampirannya template uploader yang menjadi MKPP/MPP per subdist.
+
+> **Supersede:** SLA 14 / 7 / 7 hari pada dokumen v1.1 diganti oleh lead time PA deck **30 Jul 2026** (5 / 5 / 10 / 10) di atas.
 
 ---
 
@@ -408,7 +422,8 @@ Urutan kerja yang akan didukung sistem (dari timeline development), dipetakan ke
 | Setting / memo QP | **MAVEN** |
 | Cek saldo DF masuk, mutasi, sisa budget | **BI** |
 | Potongan budget setelah klaim | **BI** (otomatis via matching) |
-| Input & proses klaim | **KICAO KDS** |
+| Input & proses klaim / Payment Approval | **KICAO KDS** |
+| Cek dasar pemakaian (MPP / MKPP Type DF) | **KICAO KDS** / ekosistem KICAO KN |
 
 ---
 
@@ -437,46 +452,51 @@ Contoh nama area/subdist yang disebut: Batam, Medan, Bekasi, Tangerang, Surabaya
 
 ## 16. Analogi Sederhana (untuk Orang Awam)
 
-Bayangkan DF seperti **rekening bersama per subdist**:
+Bayangkan DF seperti **rekening bersama per subdist** (milik KN, dikelola di Subdist):
 
-1. Di **MAVEN**, data “pemilik rekening” (master) dan “izin isi dana” (QP) di-setting.
-2. EPM “mengisi rekening”; saldo tercatat di **BI**.
-3. CCD “membuka izin belanja” lewat memo activity (MKPP).
-4. Subdist “belanja” untuk activity lalu mengajukan klaim di **KICAO KDS**.
-5. ABM & CF “cek struk” sebelum diakui.
-6. **BI** memotong saldo rekening (tanpa mengirim transaksi DF ke Oracle).
-7. FA & CCD setiap bulan “cocokkan buku” dengan EPM dan subdist.
+1. Di **MAVEN**, data “pemilik rekening” (master) dan “izin isi dana” (QP / Creating Demand) di-setting.
+2. EPM “mengisi rekening” lewat diskon 5%–30%; saldo tercatat di **BI**.
+3. KN “membuka izin belanja” lewat **MPP** / memo activity (MKPP).
+4. Subdist “belanja” untuk activity lalu mengajukan klaim + **Payment Approval** di **KICAO KDS**.
+5. User KN, ABM & HO “cek struk” sebelum diakui (SLA 5 / 10 / 10).
+6. **BI** memotong saldo rekening **setelah PA approved** (tanpa mengirim transaksi DF ke Oracle).
+7. FA & CCD setiap bulan “cocokkan buku” dengan EPM dan subdist; sisa akhir tahun **carry over**.
 
-Tujuannya: dana terpakai untuk activity yang benar, terdokumentasi, dan saldonya selalu bisa dijelaskan.
+Tujuannya: dana terpakai untuk Creating Demand yang benar, terdokumentasi, pembayarannya lebih cepat, dan saldonya selalu bisa dijelaskan.
 
 ---
 
 ## 17. Pertanyaan Terbuka / Keputusan yang Masih Perlu Diluruskan
 
-Beberapa poin dari MOM masih perlu kepastian bisnis:
+Beberapa poin masih perlu kepastian bisnis:
 
 1. Apakah KN bisa mendapat update realtime Special Discount & Trade Discount dari EPM?
-2. Perlakuan saldo akhir tahun (dihabiskan, carry over, atau opsi lain)?
+2. ~~Perlakuan saldo akhir tahun~~ — **diputuskan (30 Jul 2026):** Carry Over ke tahun berikutnya (opsi bayar ke pihak ditunjuk KN tetap ada di surat Creating Demand).
 3. Legalitas subdist untuk cover perpajakan lintas region?
 4. Detail agreement KN–Subdist dan vendor (termasuk e-commerce seperti Sirclo)?
 5. Finalisasi mekanisme subdist resign / reclass budget di operasional sehari-hari
-6. Detail integrasi teknis antar **MAVEN ↔ BI ↔ KICAO KDS** (timing sync, API/file, ownership data)
+6. Detail integrasi teknis antar **MAVEN ↔ BI ↔ KICAO KDS** (timing sync, API/file, ownership data) — Rule 6 mengunci bahwa pengelolaan saldo memakai komunikasi sistem KICAO KN, detail kontrak API masih perlu
 
 ---
 
 ## 18. Referensi
 
-- `Document/2026.07.21-Project Development Fund Subdist.pdf` — flow, SOP, MOM, list subdist
+- `Document/2026.07.30-Development Fund KN - Subdist.pdf` — Objectives, Mekanisme, Draft Creating Demand, Rules (**sumber kebenaran update**)
+- [Creating-Demand-MPP-Rules.md](./Creating-Demand-MPP-Rules.md) — lampiran ringkas deck 30 Jul
+- `Document/2026.07.21-Project Development Fund Subdist.pdf` — flow, SOP, MOM, list subdist (sumber awal)
 - `Document/TimeLine_DevelopmentFund.xlsx` — breakdown task development DF
 - Klarifikasi istilah bisnis & sistem:
   - **EPM** = Enseval Putera Megatrading (nama perusahaan, bukan sistem)
   - **CCD** = Channel & Customer Development
   - **FA** = Financial Accounting
   - **ABM** = Area Business Manager
+  - **Creating Demand** = surat kesepakatan DF + besaran diskon
+  - **MPP** = Marketing Project Plan (dasar pemakaian / bayar program)
+  - **PA** = Payment Approval (syarat potong saldo)
   - **MAVEN** = setting master & QP
   - **BI** = Budget Integration — terima & potong budget
-  - **KICAO KDS** = proses klaim
+  - **KICAO KDS / KICAO KN** = klaim, MPP/MKPP, PA, komunikasi saldo
 
 ---
 
-*Dokumen ini adalah dokumentasi bisnis + peta sistem tingkat tinggi. Detail layar, API, database, dan endpoint per sistem (MAVEN / BI / KICAO KDS) akan ditulis terpisah di dokumen FSD/teknis.*
+*Dokumen ini adalah dokumentasi bisnis + peta sistem tingkat tinggi. Detail layar, API, database, dan endpoint per sistem (MAVEN / BI / KICAO KDS) akan ditulis terpisah di dokumen FSD/teknis. Isi Creating Demand / MPP / Rules yang rinci ada di lampiran.*

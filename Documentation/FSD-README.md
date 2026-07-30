@@ -21,7 +21,8 @@ Indeks dokumen spesifikasi fungsional (draft dari prototype) dan dokumen penduku
 | [FSD/FSD_ClaimEpmSync_MAVEN_v1.0.docx](./FSD/FSD_ClaimEpmSync_MAVEN_v1.0.docx) | FSD Claim EPM Sync (akan digabung ke doc #2) | Draft v1.0 |
 | [FSD-Inject-Delta-BI.md](./FSD-Inject-Delta-BI.md) | Inject/koreksi mock BI — grain per SubDist mapping | Draft v0.2+ |
 | [FSD-KICAO-MKPP.md](./FSD-KICAO-MKPP.md) | Prototype KICAO KDS — MKPP Type DF | Draft v0.2 |
-| [business-documentation.md](./business-documentation.md) | Konteks bisnis end-to-end | Referensi |
+| [business-documentation.md](./business-documentation.md) | Konteks bisnis end-to-end (v1.2 — update deck 30 Jul) | Referensi |
+| [Creating-Demand-MPP-Rules.md](./Creating-Demand-MPP-Rules.md) | Lampiran Creating Demand, MPP, Mekanisme, Rules | v1.0 |
 
 ### Script SQL
 
