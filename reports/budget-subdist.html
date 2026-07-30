@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="id" class="light-style layout-navbar-fixed layout-menu-fixed" dir="ltr" data-theme="theme-default"
+    data-assets-path="../assets/" data-template="vertical-menu-template">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laporan Budget per Subdist - Development Fund</title>
+    <style>
+        .df-report-kpi .avatar-initial { width: 2.5rem; height: 2.5rem; }
+        #tblBudgetSummary td.col-group-sisa,
+        #tblBudgetSummary th.col-group-sisa {
+            background: rgba(105, 108, 255, 0.08);
+        }
+        #tblBudgetSummary td.col-group-sisa {
+            font-weight: 700;
+            color: #696cff;
+        }
+        .df-report-hint {
+            border-left: 3px solid #696cff;
+            padding-left: 0.75rem;
+        }
+        .df-dev-tools {
+            opacity: 0.55;
+            font-size: 0.8rem;
+        }
+        .df-dev-tools:hover { opacity: 1; }
+        .df-type-badge {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.15rem 0.45rem;
+            border-radius: 0.25rem;
+            white-space: nowrap;
+        }
+        .df-type-inject { background: #e8fadf; color: #71dd37; }
+        .df-type-use { background: #ffe0db; color: #ff3e1d; }
+        .df-type-other { background: #e7e7ff; color: #696cff; }
+    </style>
+</head>
+
+<body>
+    <div id="app-content">
+        <div class="d-flex flex-wrap justify-content-between align-items-start mb-3 gap-2">
+            <div>
+                <h4 class="fw-bold mb-1">
+                    <span class="text-muted fw-light">Laporan /</span> Budget per Subdist
+                </h4>
+                <p class="text-muted mb-0 small">
+                    Pantau sisa budget DF per Parent (termasuk Child di grup) sesuai Master Mapping.
+                </p>
+            </div>
+            <button type="button" id="btnResetMockBi" class="btn btn-link btn-sm text-muted df-dev-tools px-0"
+                title="Khusus prototype — reset data mock BI">
+                <i class="fas fa-redo-alt me-1"></i>Reset data mock
+            </button>
+        </div>
+
+        <div class="alert alert-warning py-2 mb-3" role="alert">
+            <small>
+                <strong>Mode prototype</strong> — angka dari mock BI, bukan saldo production.
+            </small>
+        </div>
+
+        <!-- KPI: Ringkasan -->
+        <div class="row g-3 mb-4 df-report-kpi" id="kpiSummaryRow">
+            <div class="col-sm-6 col-xl-4">
+                <div class="card h-100">
+                    <div class="card-body d-flex align-items-center">
+                        <div class="avatar avatar-md me-3 flex-shrink-0">
+                            <span class="avatar-initial rounded bg-label-info"><i class="fas fa-sitemap"></i></span>
+                        </div>
+                        <div>
+                            <h4 class="fw-bold mb-0" id="kpiParentCount">—</h4>
+                            <p class="text-muted mb-0 small">Jumlah Parent</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-xl-4">
+                <div class="card h-100">
+                    <div class="card-body d-flex align-items-center">
+                        <div class="avatar avatar-md me-3 flex-shrink-0">
+                            <span class="avatar-initial rounded bg-label-success"><i class="fas fa-wallet"></i></span>
+                        </div>
+                        <div>
+                            <h4 class="fw-bold mb-0" id="kpiGroupSisa">—</h4>
+                            <p class="text-muted mb-0 small">Total sisa (semua grup)</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-xl-4">
+                <div class="card h-100">
+                    <div class="card-body d-flex align-items-center">
+                        <div class="avatar avatar-md me-3 flex-shrink-0">
+                            <span class="avatar-initial rounded bg-label-primary"><i class="fas fa-arrow-down"></i></span>
+                        </div>
+                        <div>
+                            <h4 class="fw-bold mb-0" id="kpiGroupInjected">—</h4>
+                            <p class="text-muted mb-0 small">Total disuntikkan (semua grup)</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- KPI: Riwayat -->
+        <div class="row g-3 mb-4 df-report-kpi d-none" id="kpiHistoryRow">
+            <div class="col-sm-6 col-xl-4">
+                <div class="card h-100">
+                    <div class="card-body d-flex align-items-center">
+                        <div class="avatar avatar-md me-3 flex-shrink-0">
+                            <span class="avatar-initial rounded bg-label-secondary"><i class="fas fa-list"></i></span>
+                        </div>
+                        <div>
+                            <h4 class="fw-bold mb-0" id="kpiMutasiCount">—</h4>
+                            <p class="text-muted mb-0 small">Jumlah mutasi</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-xl-4">
+                <div class="card h-100">
+                    <div class="card-body d-flex align-items-center">
+                        <div class="avatar avatar-md me-3 flex-shrink-0">
+                            <span class="avatar-initial rounded bg-label-success"><i class="fas fa-plus"></i></span>
+                        </div>
+                        <div>
+                            <h4 class="fw-bold mb-0" id="kpiNetInject">—</h4>
+                            <p class="text-muted mb-0 small">Total penambahan (periode)</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-xl-4">
+                <div class="card h-100">
+                    <div class="card-body d-flex align-items-center">
+                        <div class="avatar avatar-md me-3 flex-shrink-0">
+                            <span class="avatar-initial rounded bg-label-danger"><i class="fas fa-minus"></i></span>
+                        </div>
+                        <div>
+                            <h4 class="fw-bold mb-0" id="kpiNetUsed">—</h4>
+                            <p class="text-muted mb-0 small">Total pengurangan (periode)</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                    <li class="nav-item">
+                        <button type="button" class="nav-link active" id="tab-summary" data-bs-toggle="tab"
+                            data-bs-target="#pane-summary" role="tab">Ringkasan</button>
+                    </li>
+                    <li class="nav-item">
+                        <button type="button" class="nav-link" id="tab-history" data-bs-toggle="tab"
+                            data-bs-target="#pane-history" role="tab">Riwayat</button>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-body tab-content">
+                <!-- Ringkasan -->
+                <div class="tab-pane fade show active" id="pane-summary" role="tabpanel">
+                    <div class="row g-3 mb-3 align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label" for="filterRegion">Region</label>
+                            <select id="filterRegion" class="form-select select2-filter"
+                                data-placeholder="Semua region…">
+                                <option value="">Semua region</option>
+                            </select>
+                        </div>
+                        <div class="col-md-8 text-md-end">
+                            <button type="button" id="btnExportSummary" class="btn btn-success btn-sm">
+                                <i class="fas fa-download me-1"></i> Unduh CSV (Parent + Child)
+                            </button>
+                        </div>
+                    </div>
+                    <p class="text-muted small mb-3 df-report-hint">
+                        Baris = Parent. Kolom <strong>Sisa Parent</strong> = budget Parent saja;
+                        <strong>Sisa grup</strong> = Parent + semua Child. Klik panah untuk lihat anggota.
+                    </p>
+                    <div class="card-datatable table-responsive">
+                        <table class="datatables-basic table table-bordered table-sm align-middle w-100 df-dt-grid"
+                            id="tblBudgetSummary" style="width:100%">
+                            <thead>
+                                <tr>
+                                    <th class="text-center" style="width:2.5rem;"></th>
+                                    <th>Kode</th>
+                                    <th>Nama Subdist</th>
+                                    <th>Grup</th>
+                                    <th>Region</th>
+                                    <th>ShipTo</th>
+                                    <th class="text-end">Disuntikkan</th>
+                                    <th class="text-end">Terpakai</th>
+                                    <th class="text-end">Sisa Parent</th>
+                                    <th class="text-end col-group-sisa">Sisa grup</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Riwayat -->
+                <div class="tab-pane fade" id="pane-history" role="tabpanel">
+                    <div class="row g-3 mb-3 align-items-end">
+                        <div class="col-md-5">
+                            <label class="form-label" for="filterHistoryParent">Parent</label>
+                            <select id="filterHistoryParent" class="form-select select2-filter"
+                                data-placeholder="Cari Parent…">
+                                <option value="">— Pilih Parent —</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label" for="filterFromYm">Dari</label>
+                            <input type="month" id="filterFromYm" class="form-control">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label" for="filterToYm">Sampai</label>
+                            <input type="month" id="filterToYm" class="form-control">
+                        </div>
+                        <div class="col-md-3 text-md-end">
+                            <button type="button" id="btnExportHistory" class="btn btn-success btn-sm">
+                                <i class="fas fa-download me-1"></i> Unduh CSV
+                            </button>
+                        </div>
+                    </div>
+                    <p class="text-muted small mb-3 df-report-hint" id="historyHint">
+                        Pilih Parent — mutasi grup (Parent + Child) langsung tampil. Ubah bulan untuk mempersempit periode.
+                    </p>
+                    <div class="card-datatable table-responsive">
+                        <table class="datatables-basic table table-bordered table-sm align-middle w-100 df-dt-grid"
+                            id="tblBudgetHistory" style="width:100%">
+                            <thead>
+                                <tr>
+                                    <th>Tanggal</th>
+                                    <th>Jenis</th>
+                                    <th>Kode</th>
+                                    <th class="text-end">Perubahan</th>
+                                    <th class="text-end">Saldo setelah</th>
+                                    <th>Keterangan</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/layout.js"></script>
+    <script src="../js/shared/MockBiLedger.js"></script>
+    <script src="../js/masters/MappingSubdist/seed-data.js"></script>
+    <script src="../js/masters/MappingSubdist/MappingSubdistStore.js"></script>
+    <script src="../js/masters/MappingSubdist/DfDataTable.js"></script>
+    <script src="../js/reports/ReportBudgetSubdist.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            new Layout().init();
+        });
+        document.addEventListener('layoutReady', () => {
+            ReportBudgetSubdist.init();
+        });
+    </script>
+</body>
+
+</html>

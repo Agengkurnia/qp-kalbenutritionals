@@ -5,8 +5,8 @@
 |---|---|
 | **Dokumen** | FSD Inject Development Fund / Delta BI |
 | **Produk** | Development Fund Subdist — Kalbe Nutritionals (SHP) |
-| **Versi** | 0.2 (draft + prototype mock) |
-| **Tanggal** | 24 Juli 2026 |
+| **Versi** | 0.3 (grain per SubDist mapping Parent/Child; selaras Monitoring ShipTo) |
+| **Tanggal** | 29 Juli 2026 |
 | **Sumber** | `inject-delta-breakdown.md`, Monitoring Claim EPM, Master Mapping Subdist |
 | **Status** | Draft; production BI belum terhubung — prototype memakai **MockBiLedger** |
 
@@ -70,11 +70,11 @@ Detail UI: `FSD-Master-Data.md` UC-MD-04 / UC-MD-04b.
 
 | Level | Kunci | Prototype |
 |-------|--------|-----------|
-| **A** | Parent/SubDist + bulan (`YYYY-MM`) | **Dipakai** |
+| **A** | **Per mapping SubDist** (`kodeKmmd` / mapping id) + bulan (`YYYY-MM`) — Parent **atau** Child | **Dipakai** |
 | **B** | + jenis komponen | Belum |
 | **C** | + surat referensi / QP | Belum |
 
-CSV historis diagregasi **per branch** (bukan split palsu per child di luar match identity).
+Inject BI mengikuti grain per SubDist mapping (bukan agregat branch ke parent). Claim match ke mapping via `SHIP_TO_SITE_USE_ID` = `txtShipToSiteUseId` (OutletID).
 
 ---
 
@@ -107,6 +107,7 @@ Filter koreksi unmap: `trxDate` dengan prefix bulan dalam `fromYm`…`toYm`.
 | BR-INJ-06 | Koreksi unmap memfilter ledger by **bulan** (`YYYY-MM`). |
 | BR-INJ-07 | Add historis: CSV LISTING_CLAIM + validasi identity + preview. |
 | BR-INJ-08 | Prototype persistensi = `localStorage` (`MockBiLedger`). |
+| BR-INJ-09 | Grain inject = per `kodeKmmd` / mapping id (Parent maupun Child); bukan agregat branch ke parent. |
 
 ---
 
@@ -115,7 +116,7 @@ Filter koreksi unmap: `trxDate` dengan prefix bulan dalam `fromYm`…`toYm`.
 | Kasus | Default prototype |
 |-------|-------------------|
 | Add bulan ini tanpa CSV | Link saja; tidak inject historis |
-| CSV tidak match branch child | Tolak |
+| CSV tidak match ShipTo / OutletID child | Tolak |
 | Mayoritas TRX_DATE di luar bulan dipilih | Tolak |
 | Unmap tanpa injected di rentang bulan | Confirm lepas sederhana |
 | Koreksi gagal | Abort unmap |

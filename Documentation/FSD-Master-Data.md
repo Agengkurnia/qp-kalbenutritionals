@@ -6,8 +6,8 @@
 | **Dokumen** | FSD Master Data (bagian 1) |
 | **Produk** | Development Fund Subdist — Kalbe Nutritionals (SHP) |
 | **Sistem** | **MAVEN** (setting master) |
-| **Versi** | 0.4 (aligned MAVEN `/DF/MappingSubdist`) |
-| **Tanggal** | 28 Juli 2026 |
+| **Versi** | 0.5 (ShipTo / OutletID; budget per Parent & Child) |
+| **Tanggal** | 29 Juli 2026 |
 | **Sumber** | Prototype `QP Kalbe Nutritionals` + implementasi MAVEN + `Documentation/business-documentation.md` |
 | **Status** | Draft untuk kepentingan penyusunan FSD formal |
 
@@ -122,7 +122,7 @@ Modul untuk:
 **Alur utama:**
 1. User klik **Tambah**.
 2. User membuka LOV **Kode KMMD (Bosnet)** (`vw_Outlet_Bosnet` via ConsoDWH) dan memilih satu baris.
-3. Sistem mengisi otomatis (**disabled** / tidak bisa diketik): Kode KMMD (`SubdistID`), Nama KMMD (`SubdistName`), Tipe KMMD (`TypeSubDistID`), Region, Kode Branch EPM (`BranchESI`), Branch EPM (`BranchNameESI`), Alamat (`Address` — masih editable).
+3. Sistem mengisi otomatis (**disabled** / tidak bisa diketik): Kode KMMD (`SubdistID`), Nama KMMD (`SubdistName`), Tipe KMMD (`TypeSubDistID`), Region, Kode Branch EPM (`BranchESI`), Branch EPM (`BranchNameESI`), **ShipTo / OutletID** (`OutletID` → `txtShipToSiteUseId`, hidden), Alamat (`Address` — masih editable).
 4. User mengisi **Tipe Group** (Group / Non Group).
 5. Jika Group: user mengisi **Nama Group**.
 6. User dapat mengubah Alamat dan status Aktif.
@@ -130,6 +130,7 @@ Modul untuk:
 
 **Aturan bisnis:**
 - Identitas KMMD **hanya dari Bosnet** (tidak diketik manual); field identitas memakai kontrol **disabled** (bukan readonly) agar visual jelas non-editable.
+- Saat pilih LOV Bosnet, sistem menyimpan `OutletID` → `txtShipToSiteUseId` (kunci match Monitoring Claim EPM).
 - Placeholder identitas: **Autopopulate** (tanpa menyebut nama kolom sumber).
 - Field **Titik** dihapus dari UI (tidak ada di view Bosnet production).
 - LOV Bosnet **tidak menampilkan** SubdistID yang sudah ada di mapping (`bolActive`).
@@ -272,6 +273,7 @@ Modul untuk:
 | `region` | string | Bosnet `Region` | |
 | `kodeBranch` | string | Bosnet `BranchESI` | Kode branch EPM |
 | `branchEpm` | string | Bosnet `BranchNameESI` | Nama branch EPM |
+| `shipToSiteUseId` / `txtShipToSiteUseId` | string | Bosnet `OutletID` | Kunci match CSV `SHIP_TO_SITE_USE_ID` (Monitoring) |
 | `alamat` | string | Bosnet `Address` | Editable setelah autofill |
 | `groupType` | Group \| Non Group | User | |
 | `parent` | YA \| TIDAK | User / sistem | YA = tampil di index |
@@ -312,7 +314,7 @@ MappingSubdist (Parent YA)
 |-----------|------|------------|
 | **Bosnet (KMMD)** | Inbound LOV | Sumber identitas Subdist; prototype = seed + extra mock |
 | **Master Data API (Activity)** | Inbound LOV | Jenis activity; prototype = seed |
-| **EPM Branch** | Via field Bosnet | `kodeBranch` / `branchEpm` dipakai juga untuk matching Monitoring Claim EPM |
+| **EPM Branch** | Via field Bosnet | `kodeBranch` / `branchEpm` atribut tampilan; match Monitoring memakai `shipToSiteUseId` (= `OutletID`) |
 | **BI / KICAO** | Outbound koreksi (mock) saat lepas child berdampak | Mutasi koreksi via `MockBiLedger`; production → API BI |
 
 ---
@@ -323,7 +325,7 @@ MappingSubdist (Parent YA)
 - Grid: DataTables standar (`DfDataTable`) — bordered, bahasa ID.
 - Form mapping: **tab** Child | Activity (bukan dua section terpisah).
 - Dialog konfirmasi: SweetAlert2.
-- Penyimpanan prototype: `localStorage` key `df_mapping_subdist_v2` (bukan DB).
+- Penyimpanan prototype: `localStorage` key `df_mapping_subdist_v3` (bukan DB).
 
 ---
 
@@ -363,7 +365,7 @@ Untuk kelengkapan FSD formal, kebutuhan bisnis (dari dokumen project):
 
 1. Data persistensi = browser `localStorage` (reset browser / ganti device = data hilang kecuali di-seed ulang).
 2. Bosnet & Master Activity = mock; kontrak API production perlu dilampirkan saat FSD final.
-3. Matching Monitoring Claim EPM ke Subdist bergantung pada keselarasan `branchEpm` / `kodeBranch` dengan CSV EPM (ejaan nama kritis).
+3. Matching Monitoring Claim EPM ke Subdist: `SHIP_TO_SITE_USE_ID` = `txtShipToSiteUseId` (OutletID). Mapping tanpa ShipTo tidak match sampai diisi ulang dari Bosnet.
 4. Soft-delete fisik tidak ada; audit trail koreksi unmap ada di mock BI ledger.
 5. Resign / reclass penuh Subdist parent tetap proses BI terpisah; lepas child dengan periode koreksi sudah masuk scope prototype (mock).
 
@@ -375,7 +377,7 @@ Untuk kelengkapan FSD formal, kebutuhan bisnis (dari dokumen project):
 |----|------------|--------|
 | 1 | Apakah NPWP / PPN / PPh tetap wajib di MAVEN production? | Field master & integrasi pajak |
 | 2 | Apakah child boleh dipindah antar parent, atau hanya orphan? | Filter LOV (prototype: hanya orphan / belum mapping) |
-| 3 | Satu Branch EPM banyak Parent KMMD — saldo DF di parent mana? | Aturan inject & monitoring |
+| 3 | Satu OutletID / ShipTo hanya boleh satu mapping aktif | Unique partial `txtShipToSiteUseId` |
 | 4 | Jadwal & owner Master Vendor | Scope MAVEN sprint |
 | 5 | Kontrak API Bosnet (field, auth, paging) | Integrasi production |
 
@@ -409,6 +411,7 @@ Untuk kelengkapan FSD formal, kebutuhan bisnis (dari dokumen project):
 | 0.3 | 24 Jul 2026 | Add child periode + CSV historis; lepas koreksi per bulan; BR-MD-14..18 |
 | 0.4 | 28 Jul 2026 | Index tanpa kolom Aksi/Edit (navigasi via Kode KMMD); Titik dihapus dari UI; LOV Bosnet `vw_Outlet_Bosnet`; field identitas disabled + Autopopulate; Action kiri + DataTables/SweetAlert di Child/Activity; aligned MAVEN `/DF/MappingSubdist` |
 | 0.4.1 | 28 Jul 2026 | Prototype UI diselaraskan ke MAVEN: Index Filter+Tambah, card title, Detail btn-sm, tanpa Parent toggle, LOV disabled (bukan hidden) saat edit, DataTables language/layout |
+| 0.5 | 29 Jul 2026 | Field `txtShipToSiteUseId` (Bosnet OutletID); matching Monitoring Claim EPM via ShipTo; storage key `df_mapping_subdist_v3` |
 
 ---
 

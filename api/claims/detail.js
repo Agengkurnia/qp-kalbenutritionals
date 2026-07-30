@@ -14,6 +14,7 @@ module.exports = async function handler(req, res) {
     const url = new URL(req.url || '/', 'http://localhost');
     const branch = String(q.branch || url.searchParams.get('branch') || '').trim();
     const code = String(q.code || url.searchParams.get('code') || '').trim();
+    const shipTo = String(q.shipTo || url.searchParams.get('shipTo') || '').trim();
     const limit = Math.min(Number(q.limit || url.searchParams.get('limit') || 8000) || 8000, 20000);
 
     const data = await loadLatestPayload();
@@ -22,13 +23,20 @@ module.exports = async function handler(req, res) {
     }
 
     let rows = data.detail || [];
-    if (code) rows = rows.filter((r) => String(r.branchCode || '') === code);
-    if (branch) rows = rows.filter((r) => String(r.branchName || '').toUpperCase() === branch.toUpperCase());
+    // Filter utama = ShipTo (sama MAVEN). Branch/code diabaikan bila shipTo ada.
+    if (shipTo) {
+      const shipKey = shipTo.toUpperCase();
+      rows = rows.filter((r) => String(r.shipToSiteUseId || '').trim().toUpperCase() === shipKey);
+    } else {
+      if (code) rows = rows.filter((r) => String(r.branchCode || '') === code);
+      if (branch) rows = rows.filter((r) => String(r.branchName || '').toUpperCase() === branch.toUpperCase());
+    }
 
     const totalMatched = rows.length;
     const detail = rows.slice(0, limit);
     return sendJson(res, 200, {
       ok: true,
+      shipTo,
       branch,
       code,
       totalMatched,

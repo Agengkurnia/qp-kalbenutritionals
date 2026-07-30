@@ -141,27 +141,34 @@ def format_trx_date(d) -> str:
 
 
 def build_payload(rows: list[dict], source_file: str) -> dict:
-    by_branch: dict[str, dict] = {}
+    by_ship: dict[str, dict] = {}
     for r in rows:
+        ship_raw = (r.get("SHIP_TO_SITE_USE_ID") or "").strip()
+        ship = ship_raw or "_UNKNOWN_"
         branch = (r.get("BRANCH") or "").strip() or "UNKNOWN"
         code = (r.get("BRANCH_SPC_CODE") or "").strip()
-        key = f"{code}|{branch}"
-        if key not in by_branch:
-            by_branch[key] = {
-                "key": key,
+        if ship not in by_ship:
+            by_ship[ship] = {
+                "key": ship,
+                "shipToSiteUseId": "" if ship == "_UNKNOWN_" else ship,
                 "branchCode": code,
                 "branchName": branch,
+                "custNameSample": (r.get("CUST_NAME") or "").strip(),
                 "trxCount": 0,
                 "totals": {k: 0.0 for k in AMOUNT_FIELDS},
                 "totalRp": 0.0,
                 "_minDate": None,
                 "_maxDate": None,
             }
-        b = by_branch[key]
+        b = by_ship[ship]
         b["trxCount"] += 1
         for k in AMOUNT_FIELDS:
             b["totals"][k] += r["_amounts"][k]
         b["totalRp"] += r["_totalRp"]
+        if not b["branchCode"] and code:
+            b["branchCode"] = code
+        if (not b["branchName"] or b["branchName"] == "UNKNOWN") and branch:
+            b["branchName"] = branch
         d = parse_trx_date(r.get("TRX_DATE") or "")
         if d:
             if b["_minDate"] is None or d < b["_minDate"]:
@@ -169,7 +176,7 @@ def build_payload(rows: list[dict], source_file: str) -> dict:
             if b["_maxDate"] is None or d > b["_maxDate"]:
                 b["_maxDate"] = d
 
-    summary = sorted(by_branch.values(), key=lambda x: (-x["totalRp"], x["branchName"]))
+    summary = sorted(by_ship.values(), key=lambda x: (-x["totalRp"], x.get("shipToSiteUseId") or ""))
     for s in summary:
         for k in AMOUNT_FIELDS:
             s["totals"][k] = round(s["totals"][k], 2)
@@ -182,11 +189,10 @@ def build_payload(rows: list[dict], source_file: str) -> dict:
         else:
             s["trxDateLabel"] = s["trxDateMax"] or s["trxDateMin"] or "—"
 
-
-    # Slim detail rows for UI (avoid huge payload fields)
     detail = []
     for r in rows:
         detail.append({
+            "shipToSiteUseId": (r.get("SHIP_TO_SITE_USE_ID") or "").strip(),
             "branchCode": (r.get("BRANCH_SPC_CODE") or "").strip(),
             "branchName": (r.get("BRANCH") or "").strip(),
             "custNumber": r.get("CUST_NUMBER") or "",
@@ -201,11 +207,13 @@ def build_payload(rows: list[dict], source_file: str) -> dict:
         })
 
     grand = {k: round(sum(s["totals"][k] for s in summary), 2) for k in AMOUNT_FIELDS}
+    branch_keys = {f"{s.get('branchCode')}|{s.get('branchName')}" for s in summary}
     return {
         "sourceFile": source_file,
         "fileDate": extract_date_from_name(source_file),
         "rowCount": len(rows),
-        "branchCount": len(summary),
+        "branchCount": len(branch_keys),
+        "shipToCount": len(summary),
         "grandTotals": grand,
         "grandTotalRp": round(sum(grand.values()), 2),
         "summary": summary,
@@ -214,6 +222,9 @@ def build_payload(rows: list[dict], source_file: str) -> dict:
 
 
 def summary_branch_key(s: dict) -> str:
+    ship = (s.get("shipToSiteUseId") or s.get("key") or "").strip()
+    if ship:
+        return ship
     return f"{(s.get('branchCode') or '').strip()}|{(s.get('branchName') or '').strip()}"
 
 
@@ -362,17 +373,23 @@ class Handler(BaseHTTPRequestHandler):
                     return send_json(self, 404, {"ok": False, "message": "Belum ada data. Klik Refresh."})
                 branch = (qs.get("branch") or [""])[0].strip()
                 code = (qs.get("code") or [""])[0].strip()
+                ship_to = (qs.get("shipTo") or [""])[0].strip()
                 q = (qs.get("q") or [""])[0].strip().lower()
                 limit = int((qs.get("limit") or ["5000"])[0])
                 rows = data.get("detail", [])
-                if code:
-                    rows = [r for r in rows if r.get("branchCode") == code]
-                if branch:
-                    rows = [r for r in rows if r.get("branchName") == branch]
+                if ship_to:
+                    ship_key = ship_to.upper()
+                    rows = [r for r in rows if (r.get("shipToSiteUseId") or "").strip().upper() == ship_key]
+                else:
+                    if code:
+                        rows = [r for r in rows if r.get("branchCode") == code]
+                    if branch:
+                        rows = [r for r in rows if (r.get("branchName") or "").upper() == branch.upper()]
                 if q:
                     rows = [r for r in rows if q in json.dumps(r, ensure_ascii=False).lower()]
                 return send_json(self, 200, {
                     "ok": True,
+                    "shipTo": ship_to,
                     "count": len(rows[:limit]),
                     "totalMatched": len(rows),
                     "detail": rows[:limit],

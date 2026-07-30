@@ -93,16 +93,18 @@ function formatTrxDate(d) {
 }
 
 function buildPayload(rows, sourceFile) {
-  const byBranch = new Map();
+  const byShipTo = new Map();
   for (const r of rows) {
+    const shipTo = String(r.SHIP_TO_SITE_USE_ID || '').trim() || '_UNKNOWN_';
     const branch = String(r.BRANCH || '').trim() || 'UNKNOWN';
     const code = String(r.BRANCH_SPC_CODE || '').trim();
-    const key = `${code}|${branch}`;
-    if (!byBranch.has(key)) {
-      byBranch.set(key, {
-        key,
+    if (!byShipTo.has(shipTo)) {
+      byShipTo.set(shipTo, {
+        key: shipTo,
+        shipToSiteUseId: shipTo === '_UNKNOWN_' ? '' : shipTo,
         branchCode: code,
         branchName: branch,
+        custNameSample: String(r.CUST_NAME || '').trim(),
         trxCount: 0,
         totals: Object.fromEntries(AMOUNT_FIELDS.map((k) => [k, 0])),
         totalRp: 0,
@@ -110,10 +112,12 @@ function buildPayload(rows, sourceFile) {
         _maxDate: null
       });
     }
-    const b = byBranch.get(key);
+    const b = byShipTo.get(shipTo);
     b.trxCount += 1;
     for (const k of AMOUNT_FIELDS) b.totals[k] += r._amounts[k];
     b.totalRp += r._totalRp;
+    if (!b.branchCode && code) b.branchCode = code;
+    if ((!b.branchName || b.branchName === 'UNKNOWN') && branch) b.branchName = branch;
     const d = parseTrxDate(r.TRX_DATE);
     if (d) {
       if (!b._minDate || d < b._minDate) b._minDate = d;
@@ -121,7 +125,7 @@ function buildPayload(rows, sourceFile) {
     }
   }
 
-  const summary = [...byBranch.values()].sort((a, b) => b.totalRp - a.totalRp || a.branchName.localeCompare(b.branchName));
+  const summary = [...byShipTo.values()].sort((a, b) => b.totalRp - a.totalRp || a.shipToSiteUseId.localeCompare(b.shipToSiteUseId));
   for (const s of summary) {
     for (const k of AMOUNT_FIELDS) s.totals[k] = Math.round(s.totals[k] * 100) / 100;
     s.totalRp = Math.round(s.totalRp * 100) / 100;
@@ -139,6 +143,7 @@ function buildPayload(rows, sourceFile) {
   }
 
   const detail = rows.map((r) => ({
+    shipToSiteUseId: String(r.SHIP_TO_SITE_USE_ID || '').trim(),
     branchCode: String(r.BRANCH_SPC_CODE || '').trim(),
     branchName: String(r.BRANCH || '').trim(),
     custNumber: r.CUST_NUMBER || '',
@@ -160,7 +165,8 @@ function buildPayload(rows, sourceFile) {
     sourceFile,
     fileDate: extractDateFromName(sourceFile),
     rowCount: rows.length,
-    branchCount: summary.length,
+    branchCount: new Set(summary.map((s) => `${s.branchCode}|${s.branchName}`)).size,
+    shipToCount: summary.length,
     grandTotals: grand,
     grandTotalRp: Math.round(Object.values(grand).reduce((a, b) => a + b, 0) * 100) / 100,
     summary,
@@ -247,6 +253,8 @@ function localPreviousPath() {
 }
 
 function summaryBranchKey(s) {
+  const ship = String(s.shipToSiteUseId || s.key || '').trim();
+  if (ship) return ship;
   return `${String(s.branchCode || '').trim()}|${String(s.branchName || '').trim()}`;
 }
 

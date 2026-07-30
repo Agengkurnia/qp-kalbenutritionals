@@ -238,6 +238,23 @@ class Layout {
                         </ul>
                     </li>
 
+                    <li class="menu-header small text-uppercase">
+                        <span class="menu-header-text">Report</span>
+                    </li>
+                    <li class="menu-item">
+                        <a href="javascript:void(0);" class="menu-link menu-toggle">
+                            <i class="menu-icon tf-icons fas fa-chart-bar"></i>
+                            <div data-i18n="Report">Report</div>
+                        </a>
+                        <ul class="menu-sub">
+                            <li class="menu-item">
+                                <a href="${this.basePath}reports/budget-subdist.html" class="menu-link">
+                                    <div data-i18n="Budget per Subdist">Budget per Subdist</div>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+
                 </ul>
                 <div class="df-switch-template">
                     <span class="df-switch-label">Switch Prototype</span>
@@ -323,12 +340,13 @@ class Layout {
 
         const scripts = isFileProtocol
             ? [
-                // Minimum + DataTables (dipakai Mapping Subdist grid)
+                // Minimum + DataTables + Select2 (report searchable filters)
                 'lib/vuexy/vendor/libs/jquery/jquery.js',
                 'lib/vuexy/vendor/libs/popper/popper.js',
                 'lib/vuexy/vendor/js/bootstrap.js',
                 'lib/datatables/jquery.dataTables.min.js',
                 'lib/vuexy/vendor/js/tables/datatable/dataTables.bootstrap5.min.js',
+                'lib/vuexy/vendor/libs/select2/select2.js',
                 'js/role-manager.js'
               ]
             : [

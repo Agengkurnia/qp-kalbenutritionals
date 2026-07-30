@@ -27,7 +27,7 @@ Modul Claim EPM Sync di **MAVEN** mengotomasi langkah tersebut:
 2. Mencari file LISTING_CLAIM untuk tanggal target.
 3. Download + parse CSV.
 4. Simpan **setiap baris transaksi** ke DB.
-5. Otomatis **rekap saldo harian per Branch** (Lumpsum, EDPH, Promosi, EDHL, Total).
+5. Otomatis **rekap saldo harian per ShipTo** (+ Branch) (Lumpsum, EDPH, Promosi, EDHL, Total).
 
 Hasil rekap inilah yang nanti dipakai halaman **Monitoring Claim EPM** (Total / Sebelumnya / Selisih) tanpa user harus membuka dan mencocokkan file CSV secara manual.
 
@@ -74,7 +74,7 @@ EPM / Aries (Nextcloud /shp/)
 | BR-ING-01 | File harian = **snapshot** (bukan append transaksi baru tanpa aturan replace). |
 | BR-ING-02 | Satu sync sukses untuk tanggal file yang sama **mengganti** detail & rekap aktif tanggal tersebut (soft-deactivate lama). |
 | BR-ING-03 | Hanya satu sync bertanda `bolIsLatest = true` (snapshot terkini untuk pantauan). |
-| BR-ING-04 | Rekap grain: **`BRANCH_SPC_CODE` + `BRANCH` + `dtFileDate`**. |
+| BR-ING-04 | Rekap grain: **`SHIP_TO_SITE_USE_ID` + `BRANCH_SPC_CODE` + `BRANCH` + `dtFileDate`** (Monitoring match via ShipTo/OutletID). |
 | BR-ING-05 | Komponen amount: `RP_LUMPSUM`, `RP_EDPH_PRIN`, `RP_PROMOSI`, `RP_EDHL`. Total = jumlah keempatnya. |
 | BR-ING-06 | Sync **tidak** meng-inject BI; hanya menyimpan data untuk pantauan / sumber delta nanti. |
 | BR-ING-07 | Tanggal default = hari ini **WIB** (`yyMMdd`). Boleh override lewat parameter `date`. |
@@ -137,13 +137,14 @@ Foreign key: `claimEpmSyncId` (ke `trClaimEpmSync`).
 |-------|------------|
 | `claimEpmSyncId` | Sync sumber |
 | `dtFileDate` | Tanggal file |
-| `txtBranch` / `txtBranchSpcCode` | Kunci branch |
-| `intRowCount` | Jumlah detail di branch |
+| `txtShipToSiteUseId` | Kunci ShipTo / OutletID (grain Monitoring) |
+| `txtBranch` / `txtBranchSpcCode` | Atribut branch |
+| `intRowCount` | Jumlah detail di ShipTo |
 | `decRpLumpsum` / `decRpEdphPrin` / `decRpPromosi` / `decRpEdhl` | Sum komponen |
 | `decTotal` | Sum 4 komponen |
 | `bolIsLatest` | Rekap snapshot terkini |
 
-Unique per sync + branch (mencegah double rekap).
+Unique per sync + ShipTo (+ branch) (mencegah double rekap).
 
 ---
 
@@ -160,7 +161,7 @@ Unique per sync + branch (mencegah double rekap).
              - soft-deactivate detail & balance tanggal sama (sync lama)
              - COPY bulk insert trClaimEpmDetail
              - clear bolIsLatest sync/balance lama
-             - INSERT rekap trClaimEpmDailyBalance GROUP BY branch
+             - INSERT rekap trClaimEpmDailyBalance GROUP BY ShipTo + branch
              - update sync → Success + bolIsLatest
         On error → MarkFailed
 ```
@@ -280,6 +281,8 @@ ORDER BY "decTotal" DESC;
 ## 10. Checklist deploy
 
 - [ ] Jalankan `trClaimEpmSync.sql` lalu `trClaimEpmDailyBalance.sql` di MavenDB
+- [ ] **ShipTo / OutletID:** jalankan [`migrate_shipTo_all.sql`](./Script%20SQL/migrate_shipTo_all.sql) (atau `migrate_mDfMappingSubdist_shipTo.sql` + `migrate_trClaimEpmDailyBalance_shipTo.sql`) bila DB sudah ada sebelum fitur ShipTo
+- [ ] Restart MAVEN; **Refresh** Claim EPM agar `trClaimEpmDailyBalance` rebuild per ShipTo
 - [ ] Isi section `ClaimEpm` (secret aman)
 - [ ] Deploy/restart MAVEN dengan kode Claim EPM
 - [ ] `GET .../SchedullerSyncClaimEpm?type=Trigger` → muncul di Hangfire Recurring Jobs

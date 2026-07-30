@@ -6,194 +6,188 @@
 | **Dokumen** | FSD Transaction — Monitoring Claim EPM |
 | **Produk** | Development Fund Subdist — Kalbe Nutritionals (SHP) |
 | **Modul UI** | Transaction → Monitoring SubDist / Monitoring Claim EPM |
-| **Versi** | 0.3 (draft dari prototype) |
-| **Tanggal** | 24 Juli 2026 |
-| **Sumber** | Prototype `QP Kalbe Nutritionals` + `business-documentation.md` + `FSD-Inject-Delta-BI.md` |
-| **Status** | Draft untuk kepentingan penyusunan FSD formal |
+| **Versi** | **1.0** (aligned prototype ↔ MAVEN) |
+| **Tanggal** | 29 Juli 2026 |
+| **Sumber** | Prototype `QP Kalbe Nutritionals` + MAVEN `/DF/MonitoringSubdist` + keputusan produk ShipTo / Total grup |
+| **Status** | Spesifikasi implementasi terkini |
 
 > Halaman ini **memantau realisasi LISTING_CLAIM dari EPM** per SubDist yang sudah ter-mapping.  
-> **Refresh = fetch file saja** — tidak meng-apply / inject saldo DF ke BI dari layar ini.
+> **Refresh = fetch / sync file saja** — tidak meng-apply / inject saldo DF ke BI dari layar ini.
 >
-> **Catatan implementasi (Jul 2026):** ingest production dipindah ke **MAVEN** (Hangfire + PostgreSQL).  
-> Lihat [`Claim-EPM-Sync-MAVEN.md`](./Claim-EPM-Sync-MAVEN.md) dan script di [`Script SQL/`](./Script%20SQL/).  
-> Prototype lokal/Vercel (JSON blob) tetap relevan sebagai referensi UI; sumber data production = table MAVEN.
+> **Produksi:** ingest + UI di **MAVEN** (`Hangfire` + PostgreSQL + `/DF/MonitoringSubdist`).  
+> **Prototype:** UI referensi + Claim API lokal/Vercel.  
+> Lihat juga [`Claim-EPM-Sync-MAVEN.md`](./Claim-EPM-Sync-MAVEN.md), [`FSD-Master-Data.md`](./FSD-Master-Data.md), [`FSD-Inject-Delta-BI.md`](./FSD-Inject-Delta-BI.md).
 
 ---
 
 ## 1. Tujuan
 
-1. Menampilkan agregat nilai claim/listing EPM per Branch / SubDist yang sudah di-mapping di Master Mapping Subdist.
-2. Menyediakan drill-down ke detail transaksi CSV.
-3. Menampilkan **perbandingan file harian** (Total vs file exec sebelumnya vs Selisih) sebagai dasar pantauan delta.
-4. Menyediakan **Refresh** untuk mengambil file LISTING_CLAIM terbaru (local / cloud).
+1. Menampilkan ringkasan claim EPM untuk **Parent** Mapping Subdist yang match file hari ini.
+2. Menampilkan **Total grup** (Parent + semua Child) serta Sebelumnya / Selisih di skala grup.
+3. Menyediakan drill-down transaksi & breakdown jenis **per ShipTo** SubDist yang dibuka.
+4. Menampilkan struktur Parent/Child dengan **budget masing-masing** (bukan digabung ke budget Parent).
+5. Menyediakan **Refresh** untuk mengambil file LISTING_CLAIM terbaru.
 
 ---
 
 ## 1.1 Narasi modul (bahasa awam)
 
-Bayangkan EPM setiap hari mengeluarkan “laporan listing claim” (CSV). Modul Monitoring Claim EPM menampilkan ringkasan per SubDist setelah dicocokkan dengan Master Mapping Subdist.
+EPM setiap hari mengeluarkan CSV LISTING_CLAIM. Monitoring menampilkan angka file itu setelah dicocokkan ke Master Mapping Subdist lewat **ShipTo = OutletID Bosnet**.
 
-Pertanyaan yang dijawab:
+Yang dijawab:
 
-- SubDist mana yang cocok mapping di file hari ini, dan berapa totalnya?
-- Dibanding file sebelumnya, naik/turun berapa?
-- Detail transaksi / breakdown jenis / child mapping seperti apa?
+- Parent mana yang match file hari ini, dan berapa **total grup**-nya (Parent + anak)?
+- Naik/turun dibanding file/sync sebelumnya?
+- Transaksi & komposisi jenis untuk SubDist yang dibuka?
+- Berapa budget masing-masing Parent/Child di grup?
 
-### Apa yang dilakukan user di sini?
-
-1. Membuka halaman → KPI + tabel ringkasan (mapped only).
-2. Membandingkan Total / Sebelumnya / Selisih (file vs file).
-3. Klik **Detail** untuk transaksi / breakdown jenis / daftar child mapping.
-4. Klik **Refresh** → sistem fetch file terbaru dan memperbarui grid.
-
-### Apa yang *bukan* dikerjakan di modul ini?
-
-- **Bukan** tempat input klaim Subdist (KICAO KDS).
-- **Bukan** tempat inject / potong saldo DF ke BI (itu lewat Master add/lepas + proses inject terpisah).
-- Cron/harian = fetch only.
-
-### Analogi singkat
-
-Kalau saldo DF di BI seperti **buku rekening**, modul ini seperti **cek mutasi/rekap dari bank pihak EPM** — pantauan angka file, bukan otorisasi setor/tarik ke rekening DF.
+**Bukan** tempat input klaim KICAO, dan **bukan** tempat inject BI.
 
 ---
 
-## 2. Ruang Lingkup
+## 2. Keputusan produk (kunci)
 
-### 2.1 In scope (prototype)
+| Keputusan | Keterangan |
+|-----------|------------|
+| Kunci match | `SHIP_TO_SITE_USE_ID` (CSV) = `mDfMappingSubdist.txtShipToSiteUseId` = Bosnet `OutletID` |
+| Ringkasan | **Parent saja** (Child tidak jadi baris sendiri) |
+| Unmapped | ShipTo file tanpa mapping → KPI saja, tidak digabung ke parent |
+| Budget per anggota | Parent & Child masing-masing punya budget ShipTo sendiri |
+| Card/kolom **Total** | **Display rollup grup** = sum Parent + Child (bukan “menelan” budget Parent) |
+| Komponen Lumpsum/EDPH/… | Tetap **own ShipTo Parent** pada baris ringkasan |
+| Detail transaksi | Filter **ShipTo** SubDist yang dibuka |
+| Inject BI | Grain per `kodeKmmd` / mapping (lihat FSD Inject) — di luar modul ini |
+
+```mermaid
+flowchart LR
+  csv[LISTING_CLAIM]
+  shipTo[SHIP_TO_SITE_USE_ID]
+  map[txtShipToSiteUseId]
+  parentRow[Ringkasan Parent]
+  groupTotal[Total grup]
+  childTab[Budget per Child]
+  unmapped[KPI Unmapped]
+
+  csv --> shipTo
+  shipTo -->|"equal"| map
+  map -->|"Parent"| parentRow
+  map -->|"Child"| childTab
+  parentRow --> groupTotal
+  childTab --> groupTotal
+  shipTo -->|"no match"| unmapped
+```
+
+---
+
+## 3. Ruang lingkup
+
+### 3.1 In scope
 
 | Fitur | Keterangan |
 |-------|------------|
-| Ringkasan per SubDist (mapped only) | Agregat Lumpsum, EDPH, Promosi, EDHL, Total |
-| KPI Total / Mapped / Belum mapping | Belum mapping dihitung, tidak ditampilkan di tabel |
-| Filter cari | Nama Subdist / Branch EPM / Kode Branch |
-| Detail transaksi | Drill-down + tab jenis + child mapping |
-| Last update (WIB) | Timestamp extract terakhir |
-| Refresh — Fetch | Download + extract CSV |
-| Sebelumnya & Selisih (UI grid) | File vs file exec sebelumnya |
-| Dual runtime | Local Claim API + Vercel API (WebDAV + Blob) |
+| Ringkasan Parent (mapped) | Satu baris per Parent yang match ShipTo |
+| KPI Total / Mapped / Belum mapping | Total = sum Total grup baris Parent |
+| Filter cari | Nama / Branch / Kode Branch |
+| Detail: Transaksi | By ShipTo dibuka + toolbar filter tanggal/cari/export |
+| Detail: Per jenis | Breakdown Lumpsum/EDPH/Promosi/EDHL (+ progress bar) |
+| Detail: Child mapping | Parent + Child; Budget Monitoring per ShipTo |
+| Total / Sebelumnya / Selisih grup | Summary kolom + detail KPI cards |
+| Refresh | Fetch/sync file Claim EPM |
+| Last update (WIB) | Timestamp sync/extract terakhir |
 
-### 2.2 Out of scope
+### 3.2 Out of scope
 
 | Item | Keterangan |
 |------|------------|
-| Apply / inject delta ke BI dari Monitoring | Dihapus dari UI; mutasi mock lewat Master |
-| API BI / KICAO production | |
-| Split uang DF per child dari CSV | Grain file branch-level |
-| Report Saldo DF production | Sumber BI nyata |
-| Memo QP | Modul transaction terpisah |
-| Menampilkan branch **belum mapping** di tabel | Hanya di KPI count |
+| Apply / inject delta ke BI dari Monitoring | Mutasi lewat Master / proses inject terpisah |
+| API BI production | Belum di-wire dari layar ini |
+| Multi-outlet per satu baris mapping | Satu mapping = satu OutletID (fase ini) |
+| Menampilkan Unmapped di grid | Hanya KPI |
+| Report Saldo DF production | |
 
 ---
 
-## 3. Aktor
+## 4. Aktor & navigasi
 
-| Aktor | Kebutuhan utama |
-|-------|-----------------|
-| **CCD / FA** | Pantau selisih file harian; trigger Refresh fetch |
-| **CSD / RAS** | Lihat branch belum mapping (KPI); perbaiki master |
-| **ABM / operasional** | Drill-down detail bila perlu klarifikasi |
-
-*Prototype: semua role yang login bisa buka halaman & Refresh.*
-
----
-
-## 4. Navigasi & halaman
+| Aktor | Kebutuhan |
+|-------|-----------|
+| CCD / FA | Pantau selisih file; Refresh |
+| CSD / RAS | Pastikan ShipTo terisi di master; pantau Unmapped |
+| ABM / operasional | Drill-down klarifikasi |
 
 | Item | Nilai |
 |------|--------|
-| Menu | Transaction → **Monitoring SubDist** |
-| Judul halaman | **Monitoring Claim EPM** |
-| Path | `transactions/monitoring-subdist.html` |
+| Menu | Transaction / Development Fund → **Monitoring SubDist** |
+| Prototype | `transactions/monitoring-subdist.html` |
+| MAVEN | `/DF/MonitoringSubdist` |
 
 ---
 
 ## 5. Use case
 
-### UC-TRX-MON-01 — Lihat ringkasan Claim EPM
+### UC-MON-01 — Lihat ringkasan
 
-**Prekondisi:** Claim API (local) atau API Vercel tersedia; data `latest` sudah pernah di-extract (atau user Refresh).
+1. Buka Monitoring → load summary (Claim API / `GetSummary`).
+2. Match setiap ShipTo file ke mapping aktif (case-insensitive).
+3. Child match **bukan** Unmapped, tapi **tidak** jadi baris ringkasan.
+4. Parent match → satu baris; `Total`/`Sebelumnya`/`Selisih` = **sum grup**.
+5. Komponen Rp = agregat **own ShipTo Parent**.
+6. KPI: Total = sum Total grup; Mapped = jumlah baris Parent; Belum mapping = jumlah ShipTo tanpa mapping.
 
-**Alur:**
-1. User membuka menu Monitoring SubDist.
-2. Sistem memanggil `GET /api/claims/summary`.
-3. Sistem meng-enrich baris summary dengan Master Mapping Subdist (Parent).
-4. Baris **belum mapping** disembunyikan dari tabel; dihitung di KPI **Belum Mapping**.
-5. Sistem menampilkan KPI, Last update, dan tabel ringkasan.
+### UC-MON-02 — Refresh
 
----
+1. User klik Refresh.
+2. Prototype: `POST /api/claims/refresh` (local/Vercel).  
+   MAVEN: sync Claim EPM (tolak jika status `Running`).
+3. Rotasi previous ← latest; tulis latest baru.
+4. UI reload summary.
 
-### UC-TRX-MON-02 — Refresh / ambil data hari ini
+### UC-MON-03 — Detail
 
-**Alur (local):**
-1. User klik **Refresh**.
-2. UI memanggil `POST /api/claims/refresh` ke sidecar `127.0.0.1:5055`.
-3. Sidecar download + extract → `latest.json`; rotasi `previous-summary.json`.
-4. UI reload summary + last update.
-
-**Alur (Vercel):** sama via `/api/claims/refresh` + Blob. Cron = fetch only.
-
-**Aturan Fetch:**
-- Nama file `LISTING_CLAIM_ yyMMdd.csv` = tanggal file/generate.
-- Modul ini **tidak** membuka wizard apply / tidak mengubah saldo BI.
-- Mutasi DF mock (historis / koreksi) dikelola di **Master Mapping Subdist**.
+1. Klik Detail pada Parent.
+2. Load detail by `shipTo` (+ mapping id di MAVEN).
+3. KPI cards: **Total grup / Sebelumnya grup / Selisih grup**.
+4. Tab Transaksi & Per jenis: data **ShipTo dibuka** saja.
+5. Tab Child mapping: Parent + children; budget masing-masing (`—` jika ShipTo kosong; `0` jika ShipTo ada tanpa claim).
+6. Kembali ke ringkasan memulihkan KPI summary (reset tab ke Transaksi).
 
 ---
 
-### UC-TRX-MON-03 — Drill-down detail
+## 6. Antarmuka
 
-**Alur:**
-1. User klik **Detail** pada baris summary.
-2. Sistem memanggil `GET /api/claims/detail?branch=...&code=...`.
-3. Header: Nama Subdist, hint Kode Branch · Branch EPM · N transaksi.
-4. KPI detail: Total / Sebelumnya / Selisih + kalimat ringkas.
-5. Tab: Transaksi | Per jenis (Rp) | Child mapping.
-6. **Kembali ke ringkasan** memulihkan KPI summary.
-
----
-
-## 6. Antarmuka (spesifikasi layar)
-
-### 6.1 Header
-
-| Elemen | Spesifikasi |
-|--------|-------------|
-| Breadcrumb | Transaction / Monitoring Claim EPM |
-| Last update | Format: `Last update: 23 Juli 2026, 17:17 WIB` |
-| Status API | Hanya tampil jika **error** |
-| Tombol Refresh | Memicu ingest/fetch file terbaru |
-
-### 6.2 KPI (summary mode)
+### 6.1 KPI summary
 
 | KPI | Isi |
 |-----|-----|
-| **Total (Rp)** | Sum `totalRp` hanya baris **mapped** |
-| **SubDist Ter-mapping** | Jumlah baris summary yang cocok master |
-| **Belum Mapping** | Jumlah branch di file yang tidak cocok master |
+| Total (Rp) | Sum Total grup baris Parent |
+| SubDist Ter-mapping | Jumlah baris Parent di grid |
+| Belum Mapping | Jumlah ShipTo file tanpa mapping |
 
-### 6.3 KPI (detail mode)
+### 6.2 KPI detail
 
-| KPI | Isi |
-|-----|-----|
-| Total (Rp) | Total file SubDist ini |
-| Sebelumnya (Rp) | File exec sebelumnya |
-| Selisih (Rp) | Total − Sebelumnya |
+| KPI | Label | Isi |
+|-----|--------|-----|
+| 1 | Total grup (Rp) | Sum budget ShipTo Parent + Child |
+| 2 | Sebelumnya grup (Rp) | Sum previous per anggota grup |
+| 3 | Selisih grup (Rp) | Total grup − Sebelumnya grup |
 
-### 6.4 Tabel ringkasan
+### 6.3 Tabel ringkasan
 
 | Kolom | Keterangan |
 |-------|------------|
-| Aksi | Tombol Detail |
-| Nama Subdist | Dari Mapping Subdist (Parent) |
-| Branch EPM / Kode Branch | Dari CSV |
-| Lumpsum / EDPH / Promosi / EDHL | Agregat komponen |
-| **Total (Rp)** | File terkini |
-| **Sebelumnya (Rp)** | File exec sebelumnya |
-| **Selisih (Rp)** | `Total − Sebelumnya` |
+| Aksi | Detail |
+| Nama Subdist | Parent |
+| Branch EPM / Kode Branch | Atribut Parent (dari file/mapping) |
+| Lumpsum / EDPH / Promosi / EDHL | Own ShipTo Parent |
+| Total / Sebelumnya / Selisih | **Total grup** |
 
-### 6.5 (dihapus) Wizard Apply
+### 6.4 Detail tabs
 
-*Versi 0.2 memiliki wizard apply mock BI di Monitoring. Di v0.3 fitur ini dihapus; mutasi mock lewat Master.*
+| Tab | Isi |
+|-----|-----|
+| Transaksi | Compact grid; filter tanggal + cari; tampilkan kode opsional; export CSV |
+| Per jenis | Tabel + progress bar komposisi |
+| Child mapping | Status Parent/Child; Budget Monitoring per ShipTo |
 
 ---
 
@@ -201,155 +195,118 @@ Kalau saldo DF di BI seperti **buku rekening**, modul ini seperti **cek mutasi/r
 
 | ID | Aturan |
 |----|--------|
-| BR-MON-01 | Tabel ringkasan **hanya** menampilkan branch yang ter-mapping ke Parent Mapping Subdist. |
-| BR-MON-02 | Matching mapping: `kodeBranch` **atau** `branchEpm` (case-insensitive nama) ke Parent (`parent = YA`). |
-| BR-MON-03 | Branch belum mapping dihitung di KPI, **tidak** ditampilkan di grid. |
-| BR-MON-04 | File harian = **snapshot**; kolom Sebelumnya = rotasi extract sebelumnya. |
-| BR-MON-05 | `Selisih UI = Total(file kini) − Total(file exec sebelumnya)` per kunci branch. |
-| BR-MON-06 | Extract pertama: Sebelumnya & Selisih = `—`. |
-| BR-MON-07 | Fetch menggeser `latest` → `previous`, lalu menulis `latest` baru. |
-| BR-MON-08 | Modul ini **tidak** meng-inject BI; Selisih bersifat informasi pantauan. |
-| BR-MON-09 | Last update ditampilkan dalam zona waktu **WIB**. |
-| BR-MON-10 | Cron / GET refresh = **fetch only**. |
+| BR-MON-01 | Ringkasan hanya **Parent** yang match ShipTo. |
+| BR-MON-02 | Match: `SHIP_TO_SITE_USE_ID` = `txtShipToSiteUseId` = Bosnet `OutletID` (case-insensitive). |
+| BR-MON-03 | ShipTo tanpa mapping → KPI Unmapped; tidak digabung ke Parent. |
+| BR-MON-04 | Child match ShipTo → bukan Unmapped; budget di tab Child / masuk Total grup. |
+| BR-MON-05 | Grain ringkasan UI = **satu baris per ShipTo Parent** (multi-branch digabung). |
+| BR-MON-06 | `Total` / `Sebelumnya` / `Selisih` UI = **skala grup** Parent+Child. |
+| BR-MON-07 | Lumpsum/EDPH/Promosi/EDHL di ringkasan = own Parent ShipTo. |
+| BR-MON-08 | Detail transaksi & breakdown = filter ShipTo dibuka (bukan seluruh grup). |
+| BR-MON-09 | Child tanpa ShipTo → budget `—`; ShipTo ada amount 0 → `0`. |
+| BR-MON-10 | File/sync harian = snapshot; Sebelumnya = extract/sync sukses sebelumnya. |
+| BR-MON-11 | Extract/sync pertama: Sebelumnya & Selisih = `—`. |
+| BR-MON-12 | Modul **tidak** inject BI; Refresh = fetch/sync only. |
+| BR-MON-13 | Last update ditampilkan **WIB**. |
+| BR-MON-14 | Mapping tanpa ShipTo tidak match sampai diisi dari Bosnet LOV / backfill. |
+| BR-MON-15 | Satu baris mapping = satu OutletID; multi-outlet di luar scope. |
 
 ---
 
 ## 8. Sumber data & agregasi
 
-### 8.1 File sumber
+### 8.1 File
 
-- Pola nama: `LISTING_CLAIM_ yyMMdd.csv`.
-- Delimiter tipikal: `~`.
-- Local: `tools/automate-claim-epm/file/`.
-- Remote: WebDAV `/shp/` (aries).
+- Pola: `LISTING_CLAIM_ yyMMdd.csv` (delimiter tipikal `~`).
+- Field amount: `RP_LUMPSUM`, `RP_EDPH_PRIN`, `RP_PROMOSI`, `RP_EDHL`.
+- Kunci match: `SHIP_TO_SITE_USE_ID`.
 
-### 8.2 Field amount
+### 8.2 Prototype
 
-| Field CSV | Kolom UI |
-|-----------|----------|
-| `RP_LUMPSUM` | Lumpsum (Rp) |
-| `RP_EDPH_PRIN` | EDPH (Rp) |
-| `RP_PROMOSI` | Promosi (Rp) |
-| `RP_EDHL` | EDHL (Rp) |
+| Artefak | Path |
+|---------|------|
+| Latest | `Data/claims/latest.json` / Blob |
+| Previous summary | `previous-summary.json` |
+| API | `/api/claims/summary`, `/detail?shipTo=`, `/refresh` |
+| UI | `MonitoringSubdist.js` |
 
-Kunci summary: `BRANCH_SPC_CODE` + `BRANCH`.
+### 8.3 MAVEN
 
-### 8.3 Artefak setelah extract
+| Artefak | Keterangan |
+|---------|------------|
+| `trClaimEpmSync` | Meta sync |
+| `trClaimEpmDetail` | Baris CSV (+ `txtShipToSiteUseId`) |
+| `trClaimEpmDailyBalance` | Rekap grain ShipTo (+ branch attrs); UI summary collapse per ShipTo |
+| `mDfMappingSubdist.txtShipToSiteUseId` | OutletID |
+| Service | `MonitoringSubdistService.GetSummaryAsync` / `GetDetailAsync` |
 
-| Artefak | Local | Vercel |
-|---------|-------|--------|
-| Latest payload | `Data/claims/latest.json` | Blob `claims/latest.json` |
-| Meta | `Data/claims/meta.json` | Blob `claims/meta.json` |
-| Previous summary | `Data/claims/previous-summary.json` | Blob `claims/previous-summary.json` |
-
-### 8.4 Catatan BI
-
-Inject / koreksi saldo DF **tidak** dijalankan dari halaman Monitoring.  
-Prototype mutasi mock: lihat Master Mapping + `Documentation/FSD-Inject-Delta-BI.md`.
+**Migrasi DB:** [`migrate_shipTo_all.sql`](./Script%20SQL/migrate_shipTo_all.sql).
 
 ---
 
-## 9. API (kontrak prototype)
+## 9. Kontrak API (ringkas)
 
-Base URL:
+### Prototype
 
-- Local: `http://127.0.0.1:5055`
-- Vercel: same-origin `/api/...`
+| Method | Path | Ket |
+|--------|------|-----|
+| GET | `/api/claims/summary` | Summary by ShipTo + previous |
+| GET | `/api/claims/detail?shipTo=&limit=` | Detail; bila `shipTo` ada, branch/code diabaikan |
+| POST | `/api/claims/refresh` | Fetch file |
 
-| Method | Path | Fungsi |
-|--------|------|--------|
-| GET | `/api/health` atau `/api/claims/health` | Health check |
-| GET | `/api/claims/meta` | Meta last update |
-| GET | `/api/claims/summary` | Summary + previous/selisih |
-| GET | `/api/claims/detail?branch=&code=&limit=` | Detail transaksi |
-| POST | `/api/claims/refresh` | Download + extract (+ rotasi previous) — **fetch only** |
-| GET | `/api/claims/refresh` | Cron Vercel — **fetch only** |
-| POST | `/api/claims/extract` | Extract tanpa download (local) |
+### MAVEN
 
----
-
-## 10. Arsitektur runtime
-
-```
-┌─────────────────────┐
-│  Monitoring UI      │
-│  Fetch → Wizard     │
-│  → MockBiLedger     │
-└─────────┬───────────┘
-          │
-   ┌──────┴──────┐
-Local         Vercel
-:5055         /api/claims/*
-   │             │
-CSV / Blob   latest + previous-summary
-```
+| Action | Ket |
+|--------|-----|
+| `GetSummary` | Parent rows + group totals + KPI |
+| `GetDetail` | Header grup + trx/breakdown ShipTo + children budgets |
+| `Refresh` | Sync Claim EPM |
 
 ---
 
-## 11. Env & operasional (Vercel)
+## 10. Paritas prototype ↔ MAVEN
 
-| Env | Wajib | Keterangan |
-|-----|-------|------------|
-| `CLAIM_WEBDAV_*` | Ya (Refresh) | WebDAV |
-| `BLOB_READ_WRITE_TOKEN` | Ya (persist) | Vercel Blob |
-| `CRON_SECRET` | Opsional | Proteksi Cron |
-
-Cron: `GET /api/claims/refresh` = fetch only.  
-Local: `tools/claim-api/start-claim-api.bat`.
-
----
-
-## 12. Hubungan dengan Inject DF
-
-| Monitoring | Master / Inject mock |
-|------------|----------------------|
-| File vs file (Sebelumnya / Selisih) | Add historis CSV + lepas koreksi per bulan |
-| Informasi pantauan | Mutasi ke `MockBiLedger` |
-| Tidak mengubah saldo | Mengubah saldo mock |
-
-Detail: `Documentation/FSD-Inject-Delta-BI.md`.
+| Area | Status |
+|------|--------|
+| Parent-only summary | Sama |
+| Match ShipTo | Sama (case-insensitive) |
+| Total grup | Sama |
+| Detail by ShipTo | Sama |
+| Child budget 0 / — | Sama |
+| Label Total/Sebelumnya/Selisih grup | Sama |
+| Jenis bars + story naik/turun | Sama |
+| Ingest | Prototype JSON API vs MAVEN Hangfire/DB |
 
 ---
 
-## 13. Non-functional (prototype)
+## 11. Risiko & catatan operasi
 
-| Aspek | Catatan |
-|-------|---------|
-| Performa | `latest.json` ~10MB; detail di-limit |
-| Keamanan | Credential WebDAV di env |
-| Audit | Meta extract (`lastUpdated`, `sourceFile`) |
-| UX grid | DataTables (`DfDataTable`) |
+1. Mapping lama tanpa ShipTo → semua Unmapped sampai diisi OutletID.
+2. Satu SubdistID Bosnet bisa punya banyak OutletID — pilih baris LOV yang benar (atau backfill yang match claim).
+3. Setelah ubah grain balance, **re-sync** Claim EPM.
+4. Total grup di UI **bukan** berarti budget Parent “menelan” child untuk inject BI — inject tetap per mapping id (lihat FSD Inject).
 
 ---
 
-## 14. Open points FSD formal
-
-| No | Pertanyaan |
-|----|------------|
-| 1 | Setelah BI live: apakah kolom Selisih UI diganti “vs injected”? |
-| 2 | Grain matching SubDist: nama Branch vs kode EPM wajib? |
-| 3 | Branch unmapped: tab/export tersendiri? |
-| 4 | SLA job download jika `TRX_DATE` tertinggal dari nama file |
-
----
-
-## 15. Lampiran — File prototype
+## 12. Referensi file
 
 | Area | Path |
 |------|------|
-| Halaman | `transactions/monitoring-subdist.html` |
-| Logic UI | `js/transactions/MonitoringSubdist.js` |
-| Claim API local | `tools/claim-api/server.py` |
-| API Vercel | `api/claims/*.js` |
-| Design delta | `Documentation/inject-delta-breakdown.md` |
-| FSD Inject | `Documentation/FSD-Inject-Delta-BI.md` |
+| Prototype UI | `transactions/monitoring-subdist.html`, `js/transactions/MonitoringSubdist.js` |
+| Prototype API | `api/claims/*`, `tools/claim-api/server.py` |
+| MAVEN UI | `Views/DF/MonitoringSubdist/Index.cshtml`, `wwwroot/js/DF/MonitoringSubdist/MonitoringSubdist.js` |
+| MAVEN service | `MAVEN.Services/DF/MonitoringSubdistService.cs` |
+| Master ShipTo | `FSD-Master-Data.md`, entity `MDfMappingSubdist` |
+| Sync | `Claim-EPM-Sync-MAVEN.md` |
+| Inject | `FSD-Inject-Delta-BI.md` |
 
 ---
 
-## 16. Riwayat dokumen
+## 13. Riwayat dokumen
 
 | Versi | Tanggal | Perubahan |
 |-------|---------|-----------|
-| 0.1 | 24 Jul 2026 | Draft awal FSD Monitoring Claim EPM dari prototype |
-| 0.2 | 24 Jul 2026 | Fetch vs Apply; daily lock; wizard group/child; mines; mock BI |
-| 0.3 | 24 Jul 2026 | Hapus apply wizard; Refresh fetch-only; inject lewat Master |
+| 0.1–0.4 | Jul 2026 | Draft awal → MAVEN Monitoring; fetch-only |
+| 0.5 | 29 Jul 2026 | ShipTo/OutletID; Parent & Child budget |
+| 0.6 | 29 Jul 2026 | Total grup Parent+Child |
+| **1.0** | **29 Jul 2026** | **Regenerate: keputusan produk final + paritas prototype↔MAVEN** |

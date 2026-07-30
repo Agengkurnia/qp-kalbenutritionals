@@ -2,7 +2,7 @@
  * Shared storage for Mapping Subdist
  */
 const MappingSubdistStore = {
-    STORAGE_KEY: 'df_mapping_subdist_v2',
+    STORAGE_KEY: 'df_mapping_subdist_v3',
     EDIT_ROLES: ['Administrator', 'CSD / RAS', 'CCD / FA'],
     /** Roles that may run BI unmap correction (mock) */
     CORRECTION_ROLES: ['Administrator', 'CCD / FA'],
@@ -305,6 +305,7 @@ const MappingSubdistStore = {
                         : (parentItem.namaSubdistGroup || parentItem.namaGroup || ''),
                     kodeBranch: src.kodeBranch || '',
                     branchEpm: src.branchEpm || '',
+                    shipToSiteUseId: src.shipToSiteUseId || src.outletId || '',
                     region: src.region || '',
                     tipeKmmd: src.tipeKmmd || 'KMMD-B',
                     alamat: src.alamat || '',

@@ -1,9 +1,11 @@
 /**
  * Mock BI ledger for Development Fund (prototype).
- * Persists snapshot injected, mutasi, saldo terpakai, daily apply lock.
+ * Snapshot / budget keyed per SubDist mapping (`kodeKmmd`) — Parent maupun Child
+ * (bukan glondongan parent saja). Match Monitoring via ShipTo/OutletID.
  */
 const MockBiLedger = {
-    STORAGE_KEY: 'df_mock_bi_ledger_v1',
+    /** v3: budget keyed per kodeKmmd (Parent + Child) for Report Budget */
+    STORAGE_KEY: 'df_mock_bi_ledger_v3',
     APPLY_DATE_KEY: 'df_bi_last_apply_date',
 
     /** @returns {{ snapshots: Object, ledger: Array, budgets: Object, audit: Array }} */
@@ -32,7 +34,10 @@ const MockBiLedger = {
         localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
     },
 
-    /** Seed enough data to demo unmap 10–23 and mines on negative delta */
+    /**
+     * Seed for unmap demo + Report Budget (per-member budgets & history Mei–Jul 2026).
+     * Joint group: Parent 010211 + Child 010209, 010212. Standalone: 010213, 010207.
+     */
     buildSeed: function () {
         const ledger = [];
         const mk = (partial) => Object.assign({
@@ -41,6 +46,7 @@ const MockBiLedger = {
             businessKey: '',
             parentKode: '',
             childKode: null,
+            memberKode: '',
             trxDate: '',
             delta: 0,
             amountBefore: 0,
@@ -49,8 +55,81 @@ const MockBiLedger = {
             createdAt: new Date().toISOString()
         }, partial);
 
-        // Parent Adyajati 010211 — injects Jun + Jul (month-based unmap demo)
-        const childDays = [
+        const pushInject = (memberKode, groupParent, date, amount, note) => {
+            const b = budgets[memberKode] || { parentKode: memberKode, injected: 0, used: 0 };
+            const before = Number(b.injected) || 0;
+            const after = before + amount;
+            b.injected = after;
+            budgets[memberKode] = b;
+            ledger.push(mk({
+                type: 'INJECT_DELTA',
+                businessKey: memberKode,
+                parentKode: groupParent || memberKode,
+                childKode: groupParent && groupParent !== memberKode ? memberKode : null,
+                memberKode: memberKode,
+                trxDate: date,
+                delta: amount,
+                amountBefore: before,
+                amountAfter: after,
+                note: note || 'seed inject'
+            }));
+        };
+
+        const pushUsed = (memberKode, groupParent, date, amount, note) => {
+            const b = budgets[memberKode] || { parentKode: memberKode, injected: 0, used: 0 };
+            const before = Number(b.used) || 0;
+            const after = before + amount;
+            b.used = after;
+            budgets[memberKode] = b;
+            ledger.push(mk({
+                type: 'USE_CLAIM',
+                businessKey: memberKode,
+                parentKode: groupParent || memberKode,
+                childKode: groupParent && groupParent !== memberKode ? memberKode : null,
+                memberKode: memberKode,
+                trxDate: date,
+                delta: -amount,
+                amountBefore: before,
+                amountAfter: after,
+                note: note || 'seed klaim (mock)'
+            }));
+        };
+
+        const budgets = {};
+
+        // Parent Adyajati 010211
+        pushInject('010211', '010211', '2026-05-10', 4000000, 'seed inject Parent Mei');
+        pushInject('010211', '010211', '2026-06-05', 3500000, 'seed inject Parent Jun');
+        pushInject('010211', '010211', '2026-07-08', 2000000, 'seed inject Parent Jul');
+        pushUsed('010211', '010211', '2026-06-18', 2500000, 'seed klaim Parent Jun');
+        pushUsed('010211', '010211', '2026-07-12', 3000000, 'seed klaim Parent Jul');
+
+        // Child 010209
+        pushInject('010209', '010211', '2026-06-15', 3000000, 'seed inject child 010209');
+        pushInject('010209', '010211', '2026-07-10', 2500000, 'seed inject child 010209');
+        pushInject('010209', '010211', '2026-07-15', 2000000, 'seed inject child 010209');
+        pushUsed('010209', '010211', '2026-06-28', 1500000, 'seed klaim child 010209');
+        pushUsed('010209', '010211', '2026-07-20', 2000000, 'seed klaim child 010209');
+
+        // Child 010212
+        pushInject('010212', '010211', '2026-06-20', 1500000, 'seed inject child 010212');
+        pushInject('010212', '010211', '2026-07-11', 1800000, 'seed inject child 010212');
+        pushInject('010212', '010211', '2026-07-23', 1000000, 'seed inject child 010212');
+        pushUsed('010212', '010211', '2026-07-05', 800000, 'seed klaim child 010212');
+        pushUsed('010212', '010211', '2026-07-25', 1200000, 'seed klaim child 010212');
+
+        // Standalone Medan parent 010213
+        pushInject('010213', '010213', '2026-06-01', 3000000, 'seed inject standalone');
+        pushInject('010213', '010213', '2026-07-20', 2000000, 'seed inject standalone');
+        pushUsed('010213', '010213', '2026-07-22', 4800000, 'seed klaim standalone');
+
+        // Standalone Sancho 010207 (kecil)
+        pushInject('010207', '010207', '2026-07-01', 1500000, 'seed inject standalone');
+        pushUsed('010207', '010207', '2026-07-15', 400000, 'seed klaim standalone');
+
+        // Unmap impact (getImpactForChild) filters parentKode + childKode.
+        // Mirror child injects as ledger-only rows under parent 010211 — do NOT change per-member budgets.
+        const childDaysLegacy = [
             { child: '010209', date: '2026-06-15', amount: 3000000 },
             { child: '010209', date: '2026-07-10', amount: 2500000 },
             { child: '010209', date: '2026-07-15', amount: 2000000 },
@@ -58,62 +137,40 @@ const MockBiLedger = {
             { child: '010212', date: '2026-07-11', amount: 1800000 },
             { child: '010212', date: '2026-07-23', amount: 1000000 }
         ];
-        let running = 0;
-        childDays.forEach(row => {
-            const before = running;
-            running += row.amount;
+        let runningUnmap = Number(budgets['010211'].injected) || 0;
+        childDaysLegacy.forEach(row => {
+            const before = runningUnmap;
+            runningUnmap += row.amount;
             ledger.push(mk({
                 type: 'INJECT_DELTA',
                 businessKey: '010211',
                 parentKode: '010211',
                 childKode: row.child,
+                memberKode: row.child,
                 trxDate: row.date,
                 delta: row.amount,
                 amountBefore: before,
-                amountAfter: running,
-                note: 'seed inject'
+                amountAfter: runningUnmap,
+                note: 'seed inject (unmap impact key)'
             }));
         });
 
-        // Standalone Medan parent 010213
-        ledger.push(mk({
-            businessKey: '010213',
-            parentKode: '010213',
-            childKode: null,
-            trxDate: '2026-07-20',
-            delta: 5000000,
-            amountBefore: 0,
-            amountAfter: 5000000,
-            note: 'seed inject standalone'
-        }));
-
-        const snapshots = {
-            '010211': {
-                businessKey: '010211',
-                parentKode: '010211',
-                amount: 11800000,
+        const snapshots = {};
+        Object.keys(budgets).forEach(kode => {
+            snapshots[kode] = {
+                businessKey: kode,
+                parentKode: kode,
+                amount: Number(budgets[kode].injected) || 0,
                 injectedAt: '2026-07-23T10:00:00+07:00',
                 sourceFile: 'seed'
-            },
-            '010213': {
-                businessKey: '010213',
-                parentKode: '010213',
-                amount: 5000000,
-                injectedAt: '2026-07-23T10:00:00+07:00',
-                sourceFile: 'seed'
-            }
-        };
-
-        const budgets = {
-            '010211': { parentKode: '010211', injected: 11800000, used: 9500000 },
-            '010213': { parentKode: '010213', injected: 5000000, used: 4800000 }
-        };
+            };
+        });
 
         return {
             snapshots: snapshots,
             ledger: ledger,
             budgets: budgets,
-            audit: [{ at: new Date().toISOString(), action: 'SEED', note: 'MockBiLedger seed v1' }]
+            audit: [{ at: new Date().toISOString(), action: 'SEED', note: 'MockBiLedger seed v3 — per-member budget' }]
         };
     },
 
@@ -176,6 +233,68 @@ const MockBiLedger = {
             used: used,
             sisa: injected - used
         };
+    },
+
+    /**
+     * Budgets for a list of kodeKmmd (Parent and/or Child).
+     * @param {string[]} kodes
+     * @returns {Array<{parentKode:string,injected:number,used:number,sisa:number}>}
+     */
+    listBudgetsForKodes: function (kodes) {
+        const list = Array.isArray(kodes) ? kodes : [];
+        return list.map(k => this.getBudget(String(k || '').trim())).filter(b => b.parentKode);
+    },
+
+    /**
+     * Ledger rows for report history.
+     * opts: { parentKode?, memberKodes?: string[], fromYm?, toYm?, types?: string[] }
+     * - If memberKodes set: match businessKey / memberKode / childKode / parentKode in set
+     * - Else if parentKode set: match parentKode (group) or businessKey === parentKode
+     */
+    listLedgerFiltered: function (opts) {
+        opts = opts || {};
+        const data = this.load();
+        const fromYm = opts.fromYm || '';
+        const toYm = opts.toYm || '';
+        const fromDate = fromYm ? this.monthStart(fromYm) : '';
+        const toDate = toYm ? this.monthEnd(toYm) : '';
+        const memberSet = Array.isArray(opts.memberKodes) && opts.memberKodes.length
+            ? new Set(opts.memberKodes.map(k => String(k)))
+            : null;
+        const parentKode = opts.parentKode ? String(opts.parentKode) : '';
+        const types = Array.isArray(opts.types) && opts.types.length
+            ? new Set(opts.types)
+            : null;
+
+        return data.ledger
+            .filter(l => {
+                if (types && !types.has(l.type)) return false;
+                if (opts.forReport && String(l.note || '').indexOf('unmap impact key') >= 0) return false;
+                if (fromDate && l.trxDate < fromDate) return false;
+                if (toDate && l.trxDate > toDate) return false;
+
+                if (memberSet) {
+                    const keys = [
+                        l.memberKode,
+                        l.businessKey,
+                        l.childKode,
+                        l.parentKode
+                    ].filter(Boolean).map(String);
+                    return keys.some(k => memberSet.has(k));
+                }
+                if (parentKode) {
+                    return String(l.parentKode) === parentKode
+                        || String(l.businessKey) === parentKode
+                        || String(l.memberKode) === parentKode;
+                }
+                return true;
+            })
+            .slice()
+            .sort((a, b) => {
+                const d = String(a.trxDate).localeCompare(String(b.trxDate));
+                if (d !== 0) return d;
+                return String(a.createdAt || '').localeCompare(String(b.createdAt || ''));
+            });
     },
 
     ensureBudget: function (data, parentKode) {
@@ -445,25 +564,31 @@ const MockBiLedger = {
     },
 
     /**
+     * Preview apply delta per SubDist mapping (Parent atau Child).
+     * Grain = kodeKmmd / mapping id — bukan agregat branch ke parent.
      * @deprecated Monitoring apply wizard removed — kept for compatibility.
      */
     buildApplyPreview: function (mappedRows) {
         const rows = Array.isArray(mappedRows) ? mappedRows : [];
         const data = this.load();
         return rows.map(r => {
-            const parentKode = (r.mappingParent && (r.mappingParent.kodeKmmd || r.mappingParent.id))
+            const subdistKode = r.mappedKodeKmmd
+                || (r.mapping && (r.mapping.kodeKmmd || r.mapping.id))
                 || r.kodeKmmd
                 || r.businessKey
                 || '';
             const fileTotal = Number(r.totalRp) || 0;
-            const snap = data.snapshots[parentKode];
+            const snap = data.snapshots[subdistKode];
             const injected = snap ? (Number(snap.amount) || 0) : 0;
             const delta = fileTotal - injected;
-            const budget = this.getBudget(parentKode);
+            const budget = this.getBudget(subdistKode);
             const projectedSisa = budget.sisa + delta;
             return {
-                parentKode: parentKode,
-                label: r.subdistLabel || r.branchName || parentKode,
+                parentKode: subdistKode,
+                subdistKode: subdistKode,
+                label: r.subdistLabel || r.branchName || subdistKode,
+                status: r.status || '',
+                shipToSiteUseId: r.shipToSiteUseId || '',
                 branchName: r.branchName || '',
                 branchCode: r.branchCode || '',
                 fileTotal: fileTotal,
@@ -474,10 +599,10 @@ const MockBiLedger = {
                 willGoNegative: projectedSisa < 0,
                 children: []
             };
-        }).filter(x => x.parentKode);
+        }).filter(x => x.subdistKode);
     },
 
-    /** @deprecated */
+    /** @deprecated Apply delta keyed per SubDist (kodeKmmd), Parent maupun Child. */
     applyDeltas: function (approved, meta) {
         meta = meta || {};
         const list = Array.isArray(approved) ? approved : [];
@@ -486,22 +611,23 @@ const MockBiLedger = {
 
         for (let i = 0; i < list.length; i++) {
             const item = list[i];
-            const parentKode = item.parentKode;
+            const subdistKode = item.subdistKode || item.parentKode;
             const delta = Number(item.delta) || 0;
-            if (!parentKode || delta === 0) continue;
+            if (!subdistKode || delta === 0) continue;
 
-            const budget = this.getBudget(parentKode);
+            const budget = this.getBudget(subdistKode);
             if (budget.sisa + delta < 0 && !item.acknowledgeMines) {
                 return {
                     ok: false,
-                    message: 'Group ' + parentKode + ' akan mines — acknowledge dulu.',
-                    parentKode: parentKode
+                    message: 'SubDist ' + subdistKode + ' akan mines — acknowledge dulu.',
+                    parentKode: subdistKode,
+                    subdistKode: subdistKode
                 };
             }
 
-            const snap = data.snapshots[parentKode] || {
-                businessKey: parentKode,
-                parentKode: parentKode,
+            const snap = data.snapshots[subdistKode] || {
+                businessKey: subdistKode,
+                parentKode: subdistKode,
                 amount: 0
             };
             const before = Number(snap.amount) || 0;
@@ -509,25 +635,25 @@ const MockBiLedger = {
             snap.amount = after;
             snap.injectedAt = new Date().toISOString();
             snap.sourceFile = meta.sourceFile || 'legacy-apply';
-            data.snapshots[parentKode] = snap;
+            data.snapshots[subdistKode] = snap;
 
-            const b = this.ensureBudget(data, parentKode);
+            const b = this.ensureBudget(data, subdistKode);
             b.injected = after;
 
             data.ledger.push({
                 id: 'I' + Date.now().toString(36) + i,
                 type: 'INJECT_DELTA',
-                businessKey: parentKode,
-                parentKode: parentKode,
+                businessKey: subdistKode,
+                parentKode: subdistKode,
                 childKode: null,
                 trxDate: this.todayWib(),
                 delta: delta,
                 amountBefore: before,
                 amountAfter: after,
-                note: meta.note || 'legacy apply',
+                note: meta.note || 'legacy apply per SubDist',
                 createdAt: new Date().toISOString()
             });
-            applied.push({ parentKode: parentKode, delta: delta });
+            applied.push({ parentKode: subdistKode, subdistKode: subdistKode, delta: delta });
         }
 
         data.audit.push({

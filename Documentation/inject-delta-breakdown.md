@@ -64,11 +64,11 @@ Usulan awal (bisa disesuaikan):
 
 | Level | Kunci | Kapan dipakai |
 |-------|--------|----------------|
-| **A. Agregat SubDist** (sederhana) | `kode_branch` / mapping SubDist + `periode` (bulan) | Prototype / inject glondongan |
+| **A. Per mapping SubDist** | `kodeKmmd` / mapping id (Parent **atau** Child) + `periode` (bulan); match claim via ShipTo/OutletID | **Dipakai** — inject per SubDist, bukan glondongan parent |
 | **B. Per komponen** | Level A + jenis (`LUMPSUM` / `EDPH` / `PROMOSI` / `EDHL`) | Lebih akurat ke tipe dana |
 | **C. Per referensi** | Level B + `SURAT_REFERENSI` / no QP | Paling detail; butuh kepastian field di file |
 
-**Rekomendasi mulai:** Level **A atau B**, baru naik ke C jika rekonsiliasi butuh.
+**Rekomendasi:** Level **A** (per SubDist mapping). Parent tidak menelan total child.
 
 Contoh Level A untuk 4 subdist hari 23→24:
 

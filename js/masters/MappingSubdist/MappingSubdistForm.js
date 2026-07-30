@@ -214,6 +214,7 @@ const MappingSubdistForm = {
         document.getElementById('fldRegion').value = src.region || '';
         document.getElementById('fldKodeBranch').value = src.kodeBranch || src.branchEsi || '';
         document.getElementById('fldBranchEpm').value = src.branchEpm || src.branchNameEsi || '';
+        document.getElementById('fldShipToSiteUseId').value = src.shipToSiteUseId || src.outletId || '';
         if (src.alamat || src.address) {
             document.getElementById('fldAlamat').value = src.alamat || src.address || '';
         }
@@ -312,6 +313,7 @@ const MappingSubdistForm = {
         document.getElementById('fldNamaGroup').value = item.namaGroup || '';
         document.getElementById('fldKodeBranch').value = item.kodeBranch || '';
         document.getElementById('fldBranchEpm').value = item.branchEpm || '';
+        document.getElementById('fldShipToSiteUseId').value = item.shipToSiteUseId || item.outletId || '';
         document.getElementById('fldAlamat').value = item.alamat || '';
         document.getElementById('fldActive').checked = item.active !== false;
 
@@ -436,6 +438,7 @@ const MappingSubdistForm = {
                 : document.getElementById('fldNamaGroup').value.trim(),
             kodeBranch: document.getElementById('fldKodeBranch').value.trim(),
             branchEpm: document.getElementById('fldBranchEpm').value.trim(),
+            shipToSiteUseId: document.getElementById('fldShipToSiteUseId').value.trim(),
             region: document.getElementById('fldRegion').value.trim(),
             tipeKmmd: document.getElementById('fldTipeKmmd').value,
             alamat: document.getElementById('fldAlamat').value.trim(),

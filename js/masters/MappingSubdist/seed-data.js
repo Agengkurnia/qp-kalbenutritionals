@@ -1,4 +1,4 @@
-﻿window.MappingSubdistSeed = [
+window.MappingSubdistSeed = [
     {
         "id":  "010213",
         "parent":  "YA",
@@ -17,7 +17,8 @@
         "npwp":  "",
         "ppn":  true,
         "pph":  true,
-        "active":  true
+        "active":  true,
+        "shipToSiteUseId":  "4289435"
     },
     {
         "id":  "010209",
@@ -38,7 +39,8 @@
         "ppn":  true,
         "pph":  true,
         "active":  true,
-        "linkedAt":  "2026-06-01"
+        "linkedAt":  "2026-06-01",
+        "shipToSiteUseId":  "3324911"
     },
     {
         "id":  "010207",
@@ -58,7 +60,8 @@
         "npwp":  "",
         "ppn":  true,
         "pph":  true,
-        "active":  true
+        "active":  true,
+        "shipToSiteUseId":  "3165618"
     },
     {
         "id":  "010211",
@@ -78,7 +81,8 @@
         "npwp":  "",
         "ppn":  true,
         "pph":  true,
-        "active":  true
+        "active":  true,
+        "shipToSiteUseId":  "3437680"
     },
     {
         "id":  "010212",
@@ -159,7 +163,8 @@
         "npwp":  "",
         "ppn":  true,
         "pph":  true,
-        "active":  true
+        "active":  true,
+        "shipToSiteUseId":  "3258167"
     },
     {
         "id":  "310103",
@@ -179,7 +184,8 @@
         "npwp":  "",
         "ppn":  true,
         "pph":  true,
-        "active":  true
+        "active":  true,
+        "shipToSiteUseId":  "3688423"
     },
     {
         "id":  "400306",
@@ -199,7 +205,8 @@
         "npwp":  "",
         "ppn":  true,
         "pph":  true,
-        "active":  true
+        "active":  true,
+        "shipToSiteUseId":  "5318836"
     },
     {
         "id":  "400304",
@@ -319,7 +326,8 @@
         "npwp":  "",
         "ppn":  true,
         "pph":  true,
-        "active":  true
+        "active":  true,
+        "shipToSiteUseId":  "2998756"
     },
     {
         "id":  "360301",
@@ -359,7 +367,8 @@
         "npwp":  "",
         "ppn":  true,
         "pph":  true,
-        "active":  true
+        "active":  true,
+        "shipToSiteUseId":  "5038535"
     },
     {
         "id":  "090107",
@@ -379,7 +388,8 @@
         "npwp":  "",
         "ppn":  true,
         "pph":  true,
-        "active":  true
+        "active":  true,
+        "shipToSiteUseId":  "4479196"
     },
     {
         "id":  "100102",
@@ -399,7 +409,8 @@
         "npwp":  "",
         "ppn":  true,
         "pph":  true,
-        "active":  true
+        "active":  true,
+        "shipToSiteUseId":  "1032511"
     },
     {
         "id":  "090135",
@@ -419,7 +430,8 @@
         "npwp":  "",
         "ppn":  true,
         "pph":  true,
-        "active":  true
+        "active":  true,
+        "shipToSiteUseId":  "3333862"
     },
     {
         "id":  "190106",
@@ -431,15 +443,16 @@
         "groupType":  "Group",
         "namaGroup":  "CV. Trio Hutama Group",
         "namaSubdistGroup":  "CV. Trio Hutama Group",
-        "kodeBranch":  "3219",
-        "branchEpm":  "Yogya",
+        "kodeBranch":  "19",
+        "branchEpm":  "Yogyakarta",
         "region":  "RM VI Jateng",
         "tipeKmmd":  "KMMD-B",
         "alamat":  "",
         "npwp":  "",
         "ppn":  true,
         "pph":  true,
-        "active":  true
+        "active":  true,
+        "shipToSiteUseId":  "3642479"
     },
     {
         "id":  "190111",
@@ -451,15 +464,16 @@
         "groupType":  "Group",
         "namaGroup":  "PT. Gemilang Berkat Utama Group",
         "namaSubdistGroup":  "PT. Gemilang Berkat Utama Group",
-        "kodeBranch":  "3219",
-        "branchEpm":  "Yogya",
+        "kodeBranch":  "19",
+        "branchEpm":  "Yogyakarta",
         "region":  "RM VI Jateng",
         "tipeKmmd":  "KMMD-BVG",
         "alamat":  "",
         "npwp":  "",
         "ppn":  true,
         "pph":  true,
-        "active":  true
+        "active":  true,
+        "shipToSiteUseId":  "4928569"
     },
     {
         "id":  "190108",
@@ -471,8 +485,8 @@
         "groupType":  "Group",
         "namaGroup":  "CV. Trio Hutama Group",
         "namaSubdistGroup":  "CV. Trio Hutama Group",
-        "kodeBranch":  "3219",
-        "branchEpm":  "Yogya",
+        "kodeBranch":  "19",
+        "branchEpm":  "Yogyakarta",
         "region":  "RM VI Jateng",
         "tipeKmmd":  "KMMD-B",
         "alamat":  "",
@@ -491,15 +505,16 @@
         "groupType":  "Group",
         "namaGroup":  "CV. Trio Hutama Group",
         "namaSubdistGroup":  "CV. Trio Hutama Group",
-        "kodeBranch":  "3219",
-        "branchEpm":  "Yogya",
+        "kodeBranch":  "19",
+        "branchEpm":  "Yogyakarta",
         "region":  "RM VI Jateng",
         "tipeKmmd":  "KMMD-B",
         "alamat":  "",
         "npwp":  "",
         "ppn":  true,
         "pph":  true,
-        "active":  true
+        "active":  true,
+        "shipToSiteUseId":  "5070689"
     },
     {
         "id":  "190107",
@@ -511,8 +526,8 @@
         "groupType":  "Group",
         "namaGroup":  "CV. Trio Hutama Group",
         "namaSubdistGroup":  "CV. Trio Hutama Group",
-        "kodeBranch":  "3219",
-        "branchEpm":  "Yogya",
+        "kodeBranch":  "19",
+        "branchEpm":  "Yogyakarta",
         "region":  "RM VI Jateng",
         "tipeKmmd":  "KMMD-B",
         "alamat":  "",
@@ -531,15 +546,16 @@
         "groupType":  "Group",
         "namaGroup":  "PT. Gemilang Berkat Utama Group",
         "namaSubdistGroup":  "PT. Gemilang Berkat Utama Group",
-        "kodeBranch":  "3219",
-        "branchEpm":  "Yogya",
+        "kodeBranch":  "19",
+        "branchEpm":  "Yogyakarta",
         "region":  "RM VI Jateng",
         "tipeKmmd":  "KMMD-BVG",
         "alamat":  "",
         "npwp":  "",
         "ppn":  true,
         "pph":  true,
-        "active":  true
+        "active":  true,
+        "shipToSiteUseId":  "5009757"
     },
     {
         "id":  "340307",
@@ -559,7 +575,8 @@
         "npwp":  "",
         "ppn":  true,
         "pph":  true,
-        "active":  true
+        "active":  true,
+        "shipToSiteUseId":  "4067045"
     },
     {
         "id":  "450201",
@@ -579,7 +596,8 @@
         "npwp":  "",
         "ppn":  true,
         "pph":  true,
-        "active":  true
+        "active":  true,
+        "shipToSiteUseId":  "2793821"
     },
     {
         "id":  "030220",
@@ -679,7 +697,8 @@
         "npwp":  "",
         "ppn":  true,
         "pph":  true,
-        "active":  true
+        "active":  true,
+        "shipToSiteUseId":  "2228938"
     },
     {
         "id":  "110103",
@@ -699,7 +718,8 @@
         "npwp":  "",
         "ppn":  true,
         "pph":  true,
-        "active":  true
+        "active":  true,
+        "shipToSiteUseId":  "2030606"
     },
     {
         "id":  "110106",
@@ -739,7 +759,8 @@
         "npwp":  "",
         "ppn":  true,
         "pph":  true,
-        "active":  true
+        "active":  true,
+        "shipToSiteUseId":  "3385414"
     },
     {
         "id":  "130116",
@@ -763,7 +784,6 @@
     }
 ];
 
-/** Master tambahan dari Bosnet yang belum di-mapping (untuk demo Tambah via LOV) */
 window.BosnetKmmdExtra = [
     {
         "kodeKmmd": "990101",

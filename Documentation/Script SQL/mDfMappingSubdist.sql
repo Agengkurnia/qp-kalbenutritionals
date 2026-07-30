@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS "mDfMappingSubdist" (
       REFERENCES "mDfMappingSubdist" ("pkDfMappingSubdistId"),
   "txtNamaGroup"                 varchar(200) NULL,
   "txtAlamat"                    text NULL,
+  "txtShipToSiteUseId"           varchar(50) NULL,
   "bolActive"                    boolean NOT NULL DEFAULT true,
   "dtLinkedAt"                   date NULL,
   "refInsertedBy"                varchar(100) NULL,
@@ -76,6 +77,18 @@ CREATE INDEX IF NOT EXISTS "idx_mDfMappingSubdist_isParent"
 
 CREATE INDEX IF NOT EXISTS "idx_mDfMappingSubdist_branch"
   ON "mDfMappingSubdist" ("txtKodeBranchEpm", "txtBranchEpm");
+
+CREATE INDEX IF NOT EXISTS "idx_mDfMappingSubdist_shipTo"
+  ON "mDfMappingSubdist" ("txtShipToSiteUseId")
+  WHERE "bolActive" = true
+    AND "txtShipToSiteUseId" IS NOT NULL
+    AND "txtShipToSiteUseId" <> '';
+
+CREATE UNIQUE INDEX IF NOT EXISTS "mDfMappingSubdist_txtShipToSiteUseId_uq"
+  ON "mDfMappingSubdist" ("txtShipToSiteUseId")
+  WHERE "bolActive" = true
+    AND "txtShipToSiteUseId" IS NOT NULL
+    AND "txtShipToSiteUseId" <> '';
 
 CREATE INDEX IF NOT EXISTS "idx_mDfMappingSubdist_region"
   ON "mDfMappingSubdist" ("txtRegion");

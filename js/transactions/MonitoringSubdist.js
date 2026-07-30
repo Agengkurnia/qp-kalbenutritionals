@@ -6,9 +6,13 @@
 const MonitoringSubdist = {
     summaryTable: null,
     detailTable: null,
+    childTable: null,
     currentBranch: null,
     summaryKpis: null,
     mappedRows: [],
+    detailRowsCache: [],
+    trxFilterBound: false,
+    trxDateFilterFn: null,
 
     /** Local sidecar vs Vercel serverless */
     getApiBase: function () {
@@ -47,9 +51,196 @@ const MonitoringSubdist = {
             if (el) {
                 el.addEventListener('shown.bs.tab', () => {
                     if (id === 'tab-detail-trx') this.scheduleAdjust(this.detailTable);
+                    if (id === 'tab-detail-child') this.scheduleAdjust(this.childTable);
                 });
             }
         });
+
+        this.bindTrxToolbar();
+    },
+
+    bindTrxToolbar: function () {
+        if (this.trxFilterBound) return;
+        this.trxFilterBound = true;
+        const self = this;
+
+        const from = document.getElementById('filterTrxDateFrom');
+        const to = document.getElementById('filterTrxDateTo');
+        const q = document.getElementById('filterTrxSearch');
+        const showCodes = document.getElementById('chkTrxShowCodes');
+        const compact = document.getElementById('chkTrxCompact');
+        const reset = document.getElementById('btnTrxResetFilter');
+        const exportBtn = document.getElementById('btnTrxExport');
+
+        const apply = () => self.applyTrxFilters();
+        if (from) from.addEventListener('change', apply);
+        if (to) to.addEventListener('change', apply);
+        if (q) {
+            let t = null;
+            q.addEventListener('input', () => {
+                clearTimeout(t);
+                t = setTimeout(apply, 200);
+            });
+        }
+        if (showCodes) {
+            showCodes.addEventListener('change', () => {
+                const tbl = document.getElementById('tblClaimDetail');
+                if (!tbl) return;
+                tbl.classList.toggle('show-codes', showCodes.checked);
+            });
+        }
+        if (compact) {
+            compact.addEventListener('change', () => {
+                const tbl = document.getElementById('tblClaimDetail');
+                if (!tbl) return;
+                tbl.classList.toggle('compact', compact.checked);
+                self.scheduleAdjust(self.detailTable);
+            });
+        }
+        if (reset) {
+            reset.addEventListener('click', () => {
+                if (from) from.value = '';
+                if (to) to.value = '';
+                if (q) q.value = '';
+                self.applyTrxFilters();
+            });
+        }
+        if (exportBtn) {
+            exportBtn.addEventListener('click', () => self.exportTrxCsv());
+        }
+    },
+
+    /** yyyymmdd number from Date / claim date string */
+    trxDateKey: function (v) {
+        const d = this.parseClaimTrxDate(v);
+        if (!d) return null;
+        return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+    },
+
+    dateInputToKey: function (ymd) {
+        if (!ymd) return null;
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd).trim());
+        if (!m) return null;
+        return Number(m[1]) * 10000 + Number(m[2]) * 100 + Number(m[3]);
+    },
+
+    ensureTrxDateFilter: function () {
+        const $ = window.jQuery;
+        if (!$ || !$.fn || !$.fn.dataTable) return;
+        const self = this;
+        if (this.trxDateFilterFn) {
+            const idx = $.fn.dataTable.ext.search.indexOf(this.trxDateFilterFn);
+            if (idx >= 0) $.fn.dataTable.ext.search.splice(idx, 1);
+        }
+        this.trxDateFilterFn = function (settings, data, dataIndex) {
+            if (!settings.nTable || settings.nTable.id !== 'tblClaimDetail') return true;
+            const api = new $.fn.dataTable.Api(settings);
+            const row = api.row(dataIndex).data();
+            if (!row) return true;
+            const fromKey = self.dateInputToKey((document.getElementById('filterTrxDateFrom') || {}).value);
+            const toKey = self.dateInputToKey((document.getElementById('filterTrxDateTo') || {}).value);
+            if (fromKey == null && toKey == null) return true;
+            const key = self.trxDateKey(row.trxDate);
+            if (key == null) return false;
+            if (fromKey != null && key < fromKey) return false;
+            if (toKey != null && key > toKey) return false;
+            return true;
+        };
+        $.fn.dataTable.ext.search.push(this.trxDateFilterFn);
+    },
+
+    applyTrxFilters: function () {
+        if (!this.detailTable) {
+            this.updateTrxFilterHint(0, 0);
+            return;
+        }
+        const q = ((document.getElementById('filterTrxSearch') || {}).value || '').trim();
+        this.detailTable.search(q).draw();
+        const info = this.detailTable.page.info();
+        this.updateTrxFilterHint(info.recordsDisplay, info.recordsTotal);
+        this.updateTrxFilterTotal(info.recordsDisplay);
+    },
+
+    updateTrxFilterHint: function (shown, total) {
+        const el = document.getElementById('trxFilterHint');
+        if (!el) return;
+        const from = (document.getElementById('filterTrxDateFrom') || {}).value;
+        const to = (document.getElementById('filterTrxDateTo') || {}).value;
+        const q = ((document.getElementById('filterTrxSearch') || {}).value || '').trim();
+        const filtered = !!(from || to || q);
+        if (!total) {
+            el.textContent = '';
+            return;
+        }
+        if (!filtered) {
+            el.textContent = `Menampilkan ${total.toLocaleString('id-ID')} transaksi · urut tanggal terbaru.`;
+            return;
+        }
+        el.textContent = `Filter aktif: ${shown.toLocaleString('id-ID')} dari ${total.toLocaleString('id-ID')} transaksi.`;
+    },
+
+    updateTrxFilterTotal: function (shownCount) {
+        // optional: no-op placeholder for future KPI sync with filtered set
+        void shownCount;
+    },
+
+    resetTrxToolbar: function () {
+        const from = document.getElementById('filterTrxDateFrom');
+        const to = document.getElementById('filterTrxDateTo');
+        const q = document.getElementById('filterTrxSearch');
+        if (from) from.value = '';
+        if (to) to.value = '';
+        if (q) q.value = '';
+        const hint = document.getElementById('trxFilterHint');
+        if (hint) hint.textContent = '';
+    },
+
+    exportTrxCsv: function () {
+        if (!this.detailTable) {
+            MappingSubdistStore.toast('warning', 'Belum ada data transaksi');
+            return;
+        }
+        const esc = MappingSubdistStore.esc;
+        const self = this;
+        const rows = [];
+        this.detailTable.rows({ search: 'applied' }).every(function () {
+            const r = this.data();
+            if (!r) return;
+            rows.push([
+                self.formatDateOnly(r.trxDate, 'display'),
+                r.trxNumber || '',
+                r.custNumber || '',
+                r.custName || '',
+                r.itemCode || '',
+                r.itemName || '',
+                r.suratReferensi || '',
+                String(Number(r.totalRp) || 0)
+            ]);
+        });
+        if (!rows.length) {
+            MappingSubdistStore.toast('warning', 'Tidak ada baris untuk di-export (cek filter)');
+            return;
+        }
+        const header = ['Tanggal', 'No Transaksi', 'Kode Customer', 'Customer', 'Kode Item', 'Nama Item', 'Referensi', 'Total Rp'];
+        const lines = [header].concat(rows).map(cols =>
+            cols.map(c => {
+                const s = String(c == null ? '' : c);
+                return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+            }).join(',')
+        );
+        const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const a = document.createElement('a');
+        const branch = (this.currentBranch && (this.currentBranch.code || this.currentBranch.branch)) || 'detail';
+        a.href = URL.createObjectURL(blob);
+        a.download = `monitoring-trx-${branch}-${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+            URL.revokeObjectURL(a.href);
+            a.remove();
+        }, 500);
+        MappingSubdistStore.toast('success', `Export ${rows.length.toLocaleString('id-ID')} baris`);
+        void esc;
     },
 
     api: async function (path, options) {
@@ -113,6 +304,42 @@ const MonitoringSubdist = {
         return v.toLocaleString('id-ID', { maximumFractionDigits: 0 });
     },
 
+    /** Parse TRX_DATE Claim EPM (`01-JUL-26`) / ISO / Date → Date lokal. */
+    parseClaimTrxDate: function (v) {
+        if (!v) return null;
+        if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
+        const s = String(v).trim();
+        const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+        if (iso) return new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+        const mon = {
+            JAN: 0, FEB: 1, MAR: 2, APR: 3, MAY: 4, JUN: 5,
+            JUL: 6, AUG: 7, SEP: 8, OCT: 9, NOV: 10, DEC: 11
+        };
+        const m = /^(\d{1,2})-([A-Za-z]{3})-(\d{2})$/.exec(s);
+        if (m && mon[m[2].toUpperCase()] != null) {
+            const yy = Number(m[3]);
+            const year = yy >= 70 ? 1900 + yy : 2000 + yy;
+            return new Date(year, mon[m[2].toUpperCase()], Number(m[1]));
+        }
+        const d = new Date(s);
+        return isNaN(d.getTime()) ? null : d;
+    },
+
+    /** Tampil dd/MM/yyyy; sort key yyyymmdd. */
+    formatDateOnly: function (v, type) {
+        const d = this.parseClaimTrxDate(v);
+        if (!d) {
+            if (type === 'sort' || type === 'type') return 0;
+            return v ? String(v) : '';
+        }
+        if (type === 'sort' || type === 'type') {
+            return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+        }
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        return `${dd}/${mm}/${d.getFullYear()}`;
+    },
+
     formatPreviousRp: function (n) {
         if (n == null || n === '') return '—';
         return this.formatRp(n);
@@ -126,25 +353,51 @@ const MonitoringSubdist = {
         return `<span class="${cls} fw-semibold">${sign}${this.formatRp(v)}</span>`;
     },
 
+    /**
+     * Samakan ejaan Branch EPM (mapping/Bosnet) dengan nama BRANCH di CSV Claim EPM.
+     * Contoh kritis: seed "Yogya" vs CSV "YOGYAKARTA" (CV. Trio Hutama Magelang).
+     */
+    BRANCH_NAME_ALIASES: {
+        YOGYA: 'YOGYAKARTA',
+        JOGJA: 'YOGYAKARTA',
+        JOGJAKARTA: 'YOGYAKARTA',
+        MAKASAR: 'MAKASSAR',
+        'JAKARTA 1': 'JAKARTA-1',
+        'JAKARTA 2': 'JAKARTA-2',
+        'JAKARTA 3': 'JAKARTA-3',
+        'SURABAYA 1': 'SURABAYA',
+        'SURABAYA 2': 'SURABAYA',
+        PEKANBARU: 'PEKAN BARU'
+    },
+
+    normalizeBranchName: function (name) {
+        let n = String(name || '').trim().toUpperCase().replace(/\s+/g, ' ');
+        n = n.replace(/^JAKARTA\s+(\d)$/, 'JAKARTA-$1');
+        return this.BRANCH_NAME_ALIASES[n] || n;
+    },
+
     enrichWithSubdist: function (summaryRows) {
-        const masters = MappingSubdistStore.load().filter(d => d.parent === 'YA');
-        const byCode = new Map();
-        const byBranchName = new Map();
+        const masters = MappingSubdistStore.load();
+        const byShipTo = new Map();
         masters.forEach(m => {
-            if (m.kodeBranch) byCode.set(String(m.kodeBranch).trim(), m);
-            if (m.branchEpm) byBranchName.set(String(m.branchEpm).trim().toUpperCase(), m);
+            const ship = String(m.shipToSiteUseId || m.outletId || '').trim().toUpperCase();
+            if (ship && !byShipTo.has(ship)) byShipTo.set(ship, m);
         });
 
         return summaryRows.map(s => {
-            const code = String(s.branchCode || '').trim();
-            const name = String(s.branchName || '').trim().toUpperCase();
-            const mapped = byCode.get(code) || byBranchName.get(name) || null;
+            const shipRaw = String(s.shipToSiteUseId || s.key || '').trim();
+            const shipKey = shipRaw.toUpperCase();
+            const mapped = (shipRaw && shipRaw !== '_UNKNOWN_') ? (byShipTo.get(shipKey) || null) : null;
             return Object.assign({}, s, {
+                shipToSiteUseId: shipRaw === '_UNKNOWN_' ? '' : shipRaw,
                 subdistLabel: mapped
                     ? (mapped.namaKmmd || mapped.namaGroup || '—')
                     : '— (belum mapping)',
                 mappedKodeKmmd: mapped ? mapped.kodeKmmd : '',
-                mapped: !!mapped
+                mappedId: mapped ? mapped.id : '',
+                status: mapped ? (mapped.parent === 'YA' ? 'Parent' : 'Child') : '',
+                mapped: !!mapped,
+                mapping: mapped
             });
         });
     },
@@ -157,20 +410,34 @@ const MonitoringSubdist = {
             this.setLastUpdate(data.meta);
 
             const enriched = this.enrichWithSubdist(data.summary || []);
-            const mapped = enriched.filter(r => r.mapped);
-            const unmappedCount = enriched.length - mapped.length;
-            this.mappedRows = mapped;
+            // Ringkasan: Parent saja. Child match tetap "mapped" (bukan Unmapped), budget-nya di tab Child.
+            const mappedAny = enriched.filter(r => r.mapped);
+            const parentRows = mappedAny.filter(r => r.status === 'Parent');
+            const unmappedCount = enriched.length - mappedAny.length;
+            this.allSummaryRows = enriched;
+
+            // Total / Sebelumnya / Selisih di ringkasan Parent = gabungan grup (Parent + Child)
+            const parents = parentRows.map(p => {
+                const g = this.getGroupClaimTotals(p.mapping);
+                return Object.assign({}, p, {
+                    ownTotalRp: Number(p.totalRp) || 0,
+                    totalRp: g.totalRp,
+                    previousTotalRp: g.previousTotalRp,
+                    selisihRp: g.selisihRp
+                });
+            });
+            this.mappedRows = parents;
 
             this.renderKpis({
-                grandTotalRp: mapped.reduce((s, r) => s + (Number(r.totalRp) || 0), 0),
-                mappedCount: mapped.length,
+                grandTotalRp: parents.reduce((s, r) => s + (Number(r.totalRp) || 0), 0),
+                mappedCount: parents.length,
                 unmappedCount
             });
             this.setStatus(
-                `API OK · ${data.rowCount || 0} baris · ${mapped.length} ter-mapping` +
-                (unmappedCount > 0 ? ` · ${unmappedCount} belum mapping (disembunyikan)` : '')
+                `API OK · ${data.rowCount || 0} baris · ${parents.length} Parent ter-mapping (ShipTo)` +
+                (unmappedCount > 0 ? ` · ${unmappedCount} ShipTo belum mapping` : '')
             );
-            this.renderSummary(mapped);
+            this.renderSummary(parents);
             this.applySummaryFilter();
             this.showSummaryView();
         } catch (e) {
@@ -258,10 +525,26 @@ const MonitoringSubdist = {
         if (lbl && label) lbl.textContent = label;
     },
 
+    setKpiIcons: function (mode) {
+        const total = document.getElementById('kpiIconTotal');
+        const mapped = document.getElementById('kpiIconMapped');
+        const unmapped = document.getElementById('kpiIconUnmapped');
+        if (mode === 'detail') {
+            if (total) total.className = 'fas fa-money-bill-wave';
+            if (mapped) mapped.className = 'fas fa-history';
+            if (unmapped) unmapped.className = 'fas fa-chart-line';
+            return;
+        }
+        if (total) total.className = 'fas fa-money-bill-wave';
+        if (mapped) mapped.className = 'fas fa-sitemap';
+        if (unmapped) unmapped.className = 'fas fa-unlink';
+    },
+
     renderKpis: function (data) {
         this.summaryKpis = data;
         const unmappedEl = document.getElementById('kpiUnmapped');
         if (unmappedEl) unmappedEl.className = 'fw-bold mb-0';
+        this.setKpiIcons('summary');
         if (!data) {
             this.setKpi('kpiTotal', '—', 'Total (Rp)');
             this.setKpi('kpiMapped', '—', 'SubDist Ter-mapping');
@@ -273,29 +556,28 @@ const MonitoringSubdist = {
         this.setKpi('kpiUnmapped', (data.unmappedCount || 0).toLocaleString('id-ID'), 'Belum Mapping');
     },
 
-    /** KPI dihitung ulang untuk konteks detail: Total / Sebelumnya / Selisih */
-    renderDetailKpis: function (summaryRow, detailRows, totalMatched) {
-        const totalRp = summaryRow
-            ? Number(summaryRow.totalRp) || 0
-            : (detailRows || []).reduce((s, r) => s + (Number(r.totalRp) || 0), 0);
-        const prev = summaryRow ? summaryRow.previousTotalRp : null;
-        const selisih = summaryRow ? summaryRow.selisihRp : null;
+    /** KPI detail: Total / Sebelumnya / Selisih = gabungan Parent + Child di grup */
+    renderDetailKpis: function (groupTotals, detailRows, totalMatched) {
+        const totalRp = groupTotals ? (Number(groupTotals.totalRp) || 0) : 0;
+        const prev = groupTotals ? groupTotals.previousTotalRp : null;
+        const selisih = groupTotals ? groupTotals.selisihRp : null;
 
-        this.setKpi('kpiTotal', this.formatRp(totalRp), 'Total hari ini (Rp)');
+        this.setKpiIcons('detail');
+        this.setKpi('kpiTotal', this.formatRp(totalRp), 'Total grup (Rp)');
         this.setKpi(
             'kpiMapped',
             prev == null ? '—' : this.formatRp(prev),
-            'Sebelumnya (Rp)'
+            'Sebelumnya grup (Rp)'
         );
 
         const unmappedEl = document.getElementById('kpiUnmapped');
         if (selisih == null || selisih === '') {
-            this.setKpi('kpiUnmapped', '—', 'Selisih (Rp)');
+            this.setKpi('kpiUnmapped', '—', 'Selisih grup (Rp)');
             if (unmappedEl) unmappedEl.className = 'fw-bold mb-0';
         } else {
             const v = Number(selisih) || 0;
             const sign = v > 0 ? '+' : '';
-            this.setKpi('kpiUnmapped', sign + this.formatRp(v), 'Selisih (Rp)');
+            this.setKpi('kpiUnmapped', sign + this.formatRp(v), 'Selisih grup (Rp)');
             if (unmappedEl) {
                 unmappedEl.className = 'fw-bold mb-0 ' +
                     (v > 0 ? 'text-success' : (v < 0 ? 'text-danger' : 'text-muted'));
@@ -313,40 +595,98 @@ const MonitoringSubdist = {
 
         let change = '';
         if (prev == null || selisih == null) {
-            change = 'Belum ada pembanding file sebelumnya (extract pertama / belum ada snapshot).';
+            change = 'Total grup = Parent + Child. Belum ada pembanding file sebelumnya (extract pertama / belum ada snapshot).';
         } else {
             const v = Number(selisih) || 0;
             if (v === 0) {
-                change = `Nilai sama dengan file sebelumnya (${this.formatRp(prev)}).`;
+                change = `Total grup sama dengan file sebelumnya (${this.formatRp(prev)}).`;
             } else if (v < 0) {
-                change = `Total <strong class="text-danger">turun ${this.formatRp(Math.abs(v))}</strong> dibanding file sebelumnya (${this.formatRp(prev)} → ${this.formatRp(totalRp)}).`;
+                change = `Total grup <strong class="text-danger">turun ${this.formatRp(Math.abs(v))}</strong> dibanding file sebelumnya (${this.formatRp(prev)} → ${this.formatRp(totalRp)}).`;
             } else {
-                change = `Total <strong class="text-success">naik ${this.formatRp(v)}</strong> dibanding file sebelumnya (${this.formatRp(prev)} → ${this.formatRp(totalRp)}).`;
+                change = `Total grup <strong class="text-success">naik ${this.formatRp(v)}</strong> dibanding file sebelumnya (${this.formatRp(prev)} → ${this.formatRp(totalRp)}).`;
             }
         }
 
-        el.innerHTML = `${change} · ${trx.toLocaleString('id-ID')} transaksi · ${customers.toLocaleString('id-ID')} customer.`;
+        el.innerHTML = `${change} · Tab Transaksi = ShipTo SubDist yang dibuka · ${trx.toLocaleString('id-ID')} transaksi · ${customers.toLocaleString('id-ID')} customer.`;
     },
 
-    findSummaryRow: function (branch, code) {
+    findSummaryRow: function (shipTo) {
+        const ship = String(shipTo || '').trim();
         const rows = this.mappedRows || [];
-        return rows.find(r =>
-            String(r.branchCode || '') === String(code || '') &&
-            String(r.branchName || '') === String(branch || '')
-        ) || rows.find(r =>
-            (code && String(r.branchCode || '') === String(code)) ||
-            (branch && String(r.branchName || '').toUpperCase() === String(branch).toUpperCase())
-        ) || null;
+        return rows.find(r => String(r.shipToSiteUseId || '') === ship) || null;
     },
 
-    findMappedParent: function (branch, code) {
-        const masters = MappingSubdistStore.load().filter(d => d.parent === 'YA');
-        const codeHit = code
-            ? masters.find(m => String(m.kodeBranch || '').trim() === String(code).trim())
-            : null;
-        if (codeHit) return codeHit;
-        const name = String(branch || '').trim().toUpperCase();
-        return masters.find(m => String(m.branchEpm || '').trim().toUpperCase() === name) || null;
+    findClaimByShipTo: function (shipTo) {
+        const ship = String(shipTo || '').trim();
+        if (!ship) return null;
+        const rows = this.allSummaryRows || this.mappedRows || [];
+        return rows.find(r => String(r.shipToSiteUseId || '') === ship) || null;
+    },
+
+    findBudgetByShipTo: function (shipTo) {
+        const hit = this.findClaimByShipTo(shipTo);
+        if (!hit) {
+            const ship = String(shipTo || '').trim();
+            return ship ? 0 : null;
+        }
+        return Number(hit.totalRp) || 0;
+    },
+
+    /**
+     * Total grup = Parent + semua Child (masing-masing dari ShipTo sendiri).
+     * Dipakai card Total / Sebelumnya / Selisih di detail & kolom Total ringkasan Parent.
+     */
+    getGroupClaimTotals: function (mapping) {
+        const groupParent = this.findGroupParent(mapping);
+        if (!groupParent) {
+            return { totalRp: 0, previousTotalRp: null, selisihRp: null, memberCount: 0 };
+        }
+        const members = [groupParent].concat(MappingSubdistStore.getChildren(groupParent) || []);
+        let total = 0;
+        let prevSum = 0;
+        let anyPrev = false;
+        let withShip = 0;
+        members.forEach(m => {
+            const ship = String(m.shipToSiteUseId || m.outletId || '').trim();
+            if (!ship) return;
+            withShip++;
+            const hit = this.findClaimByShipTo(ship);
+            total += hit ? (Number(hit.totalRp) || 0) : 0;
+            if (hit && hit.previousTotalRp != null && hit.previousTotalRp !== '') {
+                anyPrev = true;
+                prevSum += Number(hit.previousTotalRp) || 0;
+            }
+        });
+        return {
+            totalRp: total,
+            previousTotalRp: anyPrev ? prevSum : null,
+            selisihRp: anyPrev ? total - prevSum : null,
+            memberCount: withShip
+        };
+    },
+
+    /** Resolve group parent for child-mapping tab (Parent + siblings). */
+    findGroupParent: function (mapping) {
+        if (!mapping) return null;
+        if (mapping.parent === 'YA') return mapping;
+        const data = MappingSubdistStore.load();
+        if (mapping.parentKode) {
+            const byId = data.find(d => d.id === mapping.parentKode || d.kodeKmmd === mapping.parentKode);
+            if (byId && byId.parent === 'YA') return byId;
+        }
+        const group = mapping.namaGroup;
+        if (group && group !== 'Non Group') {
+            return data.find(d => d.parent === 'YA' && d.namaGroup === group) || mapping;
+        }
+        return mapping;
+    },
+
+    findMappedByShipTo: function (shipTo) {
+        const ship = String(shipTo || '').trim();
+        if (!ship) return null;
+        return MappingSubdistStore.load().find(m =>
+            String(m.shipToSiteUseId || m.outletId || '').trim() === ship
+        ) || null;
     },
 
     renderDetailJenis: function (summaryRow, detailRows) {
@@ -398,41 +738,99 @@ const MonitoringSubdist = {
         }
     },
 
-    renderDetailChildren: function (parent) {
-        const body = document.getElementById('tblDetailChildBody');
+    renderDetailChildren: function (mapping) {
         const note = document.getElementById('detailChildNote');
-        if (!body) return;
+        const groupParent = this.findGroupParent(mapping);
 
-        if (!parent) {
-            body.innerHTML = '<tr><td colspan="5" class="text-muted text-center">Parent mapping tidak ditemukan untuk branch ini.</td></tr>';
+        if (!groupParent) {
+            this.childTable = DfDataTable.init('#tblDetailChild', {
+                data: [],
+                columns: [
+                    { orderable: true },
+                    { orderable: true },
+                    { orderable: true, className: 'text-center' },
+                    { orderable: true },
+                    { orderable: true },
+                    { orderable: true, className: 'text-end' }
+                ],
+                language: Object.assign({}, DfDataTable.language, {
+                    emptyTable: 'Mapping tidak ditemukan untuk ShipTo ini'
+                })
+            });
             return;
         }
 
-        const children = MappingSubdistStore.getChildren(parent) || [];
+        const children = MappingSubdistStore.getChildren(groupParent) || [];
         if (note) {
             note.textContent = children.length
-                ? `Grup "${parent.namaGroup || parent.namaKmmd}" · ${children.length} child di Master Mapping. Nilai pecahan per child tidak selalu ada di CSV (sering agregat per branch).`
-                : `Parent "${parent.namaKmmd}" belum punya child di mapping.`;
-        }
-
-        if (!children.length) {
-            body.innerHTML = '<tr><td colspan="5" class="text-muted text-center">Belum ada child.</td></tr>';
-            return;
+                ? `Grup "${groupParent.namaGroup || groupParent.namaKmmd}" · kolom Budget = ShipTo masing-masing · card Total di atas = jumlah Parent + Child.`
+                : `SubDist "${groupParent.namaKmmd}" · budget dari ShipTo mapping ini.`;
         }
 
         const esc = MappingSubdistStore.esc;
-        body.innerHTML = children.map(c => {
-            const st = c.active === false
-                ? '<span class="badge bg-label-danger">Non Active</span>'
-                : '<span class="badge bg-label-success">Active</span>';
-            return `<tr>
-                <td><code>${esc(c.kodeKmmd)}</code></td>
-                <td>${esc(c.namaKmmd)}</td>
-                <td>${esc(c.titik)}</td>
-                <td>${esc(c.branchEpm)}</td>
-                <td>${st}</td>
-            </tr>`;
-        }).join('');
+        const self = this;
+        const budgetOf = function (m) {
+            const ship = String(m.shipToSiteUseId || m.outletId || '').trim();
+            if (!ship) return null;
+            return self.findBudgetByShipTo(ship);
+        };
+        const rows = [
+            {
+                kodeKmmd: groupParent.kodeKmmd,
+                namaKmmd: groupParent.namaKmmd,
+                status: 'Parent',
+                branchEpm: groupParent.branchEpm,
+                linkedAt: '',
+                budget: budgetOf(groupParent)
+            }
+        ].concat(children.map(c => ({
+            kodeKmmd: c.kodeKmmd,
+            namaKmmd: c.namaKmmd,
+            status: 'Child',
+            branchEpm: c.branchEpm,
+            linkedAt: c.linkedAt ? String(c.linkedAt).substring(0, 10) : '',
+            budget: budgetOf(c)
+        })));
+
+        this.childTable = DfDataTable.init('#tblDetailChild', {
+            data: rows,
+            columns: [
+                {
+                    data: 'kodeKmmd',
+                    render: function (d) { return `<code>${esc(d)}</code>`; }
+                },
+                { data: 'namaKmmd', defaultContent: '' },
+                {
+                    data: 'status',
+                    className: 'text-center',
+                    render: function (d, type) {
+                        if (type === 'sort' || type === 'type') return d === 'Parent' ? 0 : 1;
+                        return d === 'Parent'
+                            ? '<span class="badge bg-success">Parent</span>'
+                            : '<span class="badge bg-label-secondary">Child</span>';
+                    }
+                },
+                { data: 'branchEpm', defaultContent: '' },
+                {
+                    data: 'linkedAt',
+                    render: function (d, type) {
+                        return d ? self.formatDateOnly(d, type) : (type === 'sort' || type === 'type' ? 0 : '');
+                    }
+                },
+                {
+                    data: 'budget',
+                    className: 'text-end',
+                    render: function (d) {
+                        return d == null ? '—' : `<span class="fw-semibold">${self.formatRp(d)}</span>`;
+                    }
+                }
+            ],
+            order: [[2, 'asc'], [1, 'asc']],
+            language: Object.assign({}, DfDataTable.language, {
+                emptyTable: 'Belum ada struktur parent/child yang bisa ditampilkan untuk subdist ini'
+            })
+        });
+        this.scheduleAdjust(this.childTable);
     },
 
     applySummaryFilter: function () {
@@ -448,6 +846,7 @@ const MonitoringSubdist = {
         const data = (rows || []).map(r => [
             `<div class="text-center">
                 <button type="button" class="btn btn-sm btn-outline-primary btn-open-detail"
+                    data-shipto="${esc(r.shipToSiteUseId)}"
                     data-branch="${esc(r.branchName)}"
                     data-code="${esc(r.branchCode)}"
                     data-subdist="${esc(r.subdistLabel)}">Detail</button>
@@ -489,6 +888,7 @@ const MonitoringSubdist = {
         if ($ && this.summaryTable) {
             $('#tblClaimSummary').off('click', '.btn-open-detail').on('click', '.btn-open-detail', function () {
                 self.openDetail(
+                    this.getAttribute('data-shipto'),
                     this.getAttribute('data-branch'),
                     this.getAttribute('data-code'),
                     this.getAttribute('data-subdist')
@@ -513,49 +913,56 @@ const MonitoringSubdist = {
         }
     },
 
-    openDetail: async function (branch, code, subdistLabel) {
-        this.currentBranch = { branch, code, subdistLabel };
+    openDetail: async function (shipTo, branch, code, subdistLabel) {
+        this.currentBranch = { shipTo, branch, code, subdistLabel };
         document.getElementById('viewSummary').style.display = 'none';
         document.getElementById('viewDetail').style.display = '';
 
         const titleName = (subdistLabel && subdistLabel !== '—')
             ? subdistLabel
-            : (branch || code || '—');
+            : (branch || code || shipTo || '—');
         document.getElementById('detailTitle').textContent = titleName;
         document.getElementById('detailHint').textContent = 'Memuat transaksi...';
         const story = document.getElementById('detailStory');
         if (story) story.textContent = '';
 
-        const summaryRow = this.findSummaryRow(branch, code);
-        const parent = this.findMappedParent(branch, code);
+        const summaryRow = this.findSummaryRow(shipTo);
+        const mapping = this.findMappedByShipTo(shipTo);
 
         try {
             const qs = new URLSearchParams();
+            if (shipTo) qs.set('shipTo', shipTo);
             if (branch) qs.set('branch', branch);
             if (code) qs.set('code', code);
             qs.set('limit', '8000');
             const data = await this.api('/api/claims/detail?' + qs.toString());
             const n = data.totalMatched || 0;
-            const childCount = parent ? (MappingSubdistStore.getChildren(parent) || []).length : 0;
+            const groupParent = this.findGroupParent(mapping);
+            const childCount = groupParent ? (MappingSubdistStore.getChildren(groupParent) || []).length : 0;
             const hintParts = [
-                code || '—',
-                branch || '—',
-                childCount ? `${childCount} child` : null,
+                shipTo ? `ShipTo ${shipTo}` : null,
+                mapping ? (mapping.parent === 'YA' ? 'Parent' : 'Child') : null,
+                code || null,
+                branch || null,
+                childCount ? `${childCount} child di grup` : null,
                 `${n.toLocaleString('id-ID')} transaksi`
             ].filter(Boolean);
             if (data.count < data.totalMatched) {
                 hintParts.push(`tampil ${data.count}`);
             }
             document.getElementById('detailHint').textContent = hintParts.join(' · ');
-            this.renderDetailKpis(summaryRow, data.detail || [], data.totalMatched);
+            const groupTotals = this.getGroupClaimTotals(mapping);
+            this.renderDetailKpis(groupTotals, data.detail || [], data.totalMatched);
             this.renderDetailJenis(summaryRow, data.detail || []);
-            this.renderDetailChildren(parent);
+            this.renderDetailChildren(mapping);
+            this.resetTrxToolbar();
             this.renderDetail(data.detail || []);
         } catch (e) {
             document.getElementById('detailHint').textContent = e.message || 'Gagal load detail';
-            this.renderDetailKpis(summaryRow, [], 0);
+            this.renderDetailKpis(this.getGroupClaimTotals(mapping), [], 0);
             this.renderDetailJenis(summaryRow, []);
-            this.renderDetailChildren(parent);
+            this.renderDetailChildren(mapping);
+            this.resetTrxToolbar();
             this.renderDetail([]);
         }
     },
@@ -563,35 +970,96 @@ const MonitoringSubdist = {
     renderDetail: function (rows) {
         const esc = MappingSubdistStore.esc;
         const self = this;
-        const data = (rows || []).map(r => [
-            esc(r.trxDate),
-            esc(r.trxNumber),
-            esc(r.custNumber),
-            esc(r.custName),
-            esc(r.itemCode),
-            esc(r.itemName),
-            esc(r.suratReferensi),
-            self.formatRp(r.totalRp)
-        ]);
+        this.detailRowsCache = rows || [];
+        this.ensureTrxDateFilter();
+
+        const data = (rows || []).map(r => ({
+            trxDate: r.trxDate,
+            trxNumber: r.trxNumber,
+            custNumber: r.custNumber,
+            custName: r.custName,
+            itemCode: r.itemCode,
+            itemName: r.itemName,
+            suratReferensi: r.suratReferensi,
+            totalRp: r.totalRp
+        }));
+
+        const showCodes = !!(document.getElementById('chkTrxShowCodes') || {}).checked;
+        const compact = !!(document.getElementById('chkTrxCompact') || {}).checked;
+        const tbl = document.getElementById('tblClaimDetail');
+        if (tbl) {
+            tbl.classList.toggle('show-codes', showCodes);
+            tbl.classList.toggle('compact', compact);
+        }
 
         this.detailTable = DfDataTable.init('#tblClaimDetail', {
             data,
             columns: [
-                { orderable: true },
-                { orderable: true },
-                { orderable: true },
-                { orderable: true },
-                { orderable: true },
-                { orderable: true },
-                { orderable: true },
-                { orderable: true, className: 'text-end' }
+                {
+                    data: 'trxDate',
+                    className: 'df-trx-date',
+                    render: function (d, type) {
+                        const formatted = self.formatDateOnly(d, type);
+                        if (type === 'display') return `<span class="df-trx-date">${formatted}</span>`;
+                        return formatted;
+                    }
+                },
+                {
+                    data: 'trxNumber',
+                    render: function (d) {
+                        return d ? `<code class="small">${esc(d)}</code>` : '—';
+                    }
+                },
+                {
+                    data: 'custName',
+                    render: function (d, type, row) {
+                        if (type === 'filter' || type === 'sort') {
+                            return `${row.custName || ''} ${row.custNumber || ''}`.trim();
+                        }
+                        const name = esc(row.custName || '—');
+                        const code = row.custNumber
+                            ? `<div class="df-trx-code">${esc(row.custNumber)}</div>`
+                            : '';
+                        return `<div class="df-trx-name">${name}</div>${code}`;
+                    }
+                },
+                {
+                    data: 'itemName',
+                    render: function (d, type, row) {
+                        if (type === 'filter' || type === 'sort') {
+                            return `${row.itemName || ''} ${row.itemCode || ''}`.trim();
+                        }
+                        const name = esc(row.itemName || '—');
+                        const code = row.itemCode
+                            ? `<div class="df-trx-code">${esc(row.itemCode)}</div>`
+                            : '';
+                        return `<div class="df-trx-name">${name}</div>${code}`;
+                    }
+                },
+                {
+                    data: 'suratReferensi',
+                    render: function (d) {
+                        const v = String(d || '').trim();
+                        return v ? esc(v) : '<span class="text-muted">—</span>';
+                    }
+                },
+                {
+                    data: 'totalRp',
+                    className: 'text-end',
+                    render: function (d, type) {
+                        if (type === 'sort' || type === 'type') return Number(d) || 0;
+                        return `<span class="df-trx-total">${self.formatRp(d)}</span>`;
+                    }
+                }
             ],
             order: [[0, 'desc']],
             pageLength: 25,
+            dom: '<"row mx-0 mb-3 align-items-center"<"col-sm-6"l><"col-sm-6">>rt<"row mx-0 mt-3 align-items-center"<"col-sm-5"i><"col-sm-7"p>>',
             language: Object.assign({}, DfDataTable.language, {
-                emptyTable: 'Tidak ada transaksi'
+                emptyTable: 'Tidak ada transaksi untuk filter / branch ini'
             })
         });
+        this.applyTrxFilters();
         this.scheduleAdjust(this.detailTable);
     },
 

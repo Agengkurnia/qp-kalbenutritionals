@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS "trClaimEpmDailyBalance" (
   "dtFileDate"             date NOT NULL,
   "txtBranch"              varchar(100) NULL,
   "txtBranchSpcCode"       varchar(20) NULL,
+  "txtShipToSiteUseId"     varchar(50) NULL,
   "intRowCount"            integer NOT NULL DEFAULT 0,
   "decRpLumpsum"           numeric(18,4) NOT NULL DEFAULT 0,
   "decRpEdphPrin"          numeric(18,4) NOT NULL DEFAULT 0,
@@ -33,14 +34,18 @@ CREATE INDEX IF NOT EXISTS "idx_trClaimEpmDailyBalance_fileDate"
 CREATE INDEX IF NOT EXISTS "idx_trClaimEpmDailyBalance_branch"
   ON "trClaimEpmDailyBalance" ("txtBranchSpcCode", "txtBranch");
 
+CREATE INDEX IF NOT EXISTS "idx_trClaimEpmDailyBalance_shipTo"
+  ON "trClaimEpmDailyBalance" ("txtShipToSiteUseId");
+
 CREATE INDEX IF NOT EXISTS "idx_trClaimEpmDailyBalance_isLatest"
   ON "trClaimEpmDailyBalance" ("bolIsLatest")
   WHERE "bolIsLatest" = true AND "bolActive" = true;
 
--- Satu branch per sync (hindari double rekap bila sync di-retry)
-CREATE UNIQUE INDEX IF NOT EXISTS "uq_trClaimEpmDailyBalance_sync_branch"
+-- Satu ShipTo (+ branch) per sync
+CREATE UNIQUE INDEX IF NOT EXISTS "uq_trClaimEpmDailyBalance_sync_shipTo"
   ON "trClaimEpmDailyBalance" (
     "claimEpmSyncId",
+    COALESCE("txtShipToSiteUseId", ''),
     COALESCE("txtBranchSpcCode", ''),
     COALESCE("txtBranch", '')
   );

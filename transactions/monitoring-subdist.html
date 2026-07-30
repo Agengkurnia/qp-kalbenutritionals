@@ -30,7 +30,7 @@
                 <div class="card h-100">
                     <div class="card-body d-flex align-items-center">
                         <div class="avatar avatar-md me-3 flex-shrink-0">
-                            <span class="avatar-initial rounded bg-label-success"><i class="fas fa-coins"></i></span>
+                            <span class="avatar-initial rounded bg-label-success"><i class="fas fa-money-bill-wave" id="kpiIconTotal"></i></span>
                         </div>
                         <div>
                             <h4 class="fw-bold mb-0" id="kpiTotal">—</h4>
@@ -43,7 +43,7 @@
                 <div class="card h-100">
                     <div class="card-body d-flex align-items-center">
                         <div class="avatar avatar-md me-3 flex-shrink-0">
-                            <span class="avatar-initial rounded bg-label-info"><i class="fas fa-sitemap"></i></span>
+                            <span class="avatar-initial rounded bg-label-info"><i class="fas fa-sitemap" id="kpiIconMapped"></i></span>
                         </div>
                         <div>
                             <h4 class="fw-bold mb-0" id="kpiMapped">—</h4>
@@ -56,7 +56,7 @@
                 <div class="card h-100">
                     <div class="card-body d-flex align-items-center">
                         <div class="avatar avatar-md me-3 flex-shrink-0">
-                            <span class="avatar-initial rounded bg-label-warning"><i class="fas fa-unlink"></i></span>
+                            <span class="avatar-initial rounded bg-label-warning"><i class="fas fa-unlink" id="kpiIconUnmapped"></i></span>
                         </div>
                         <div>
                             <h4 class="fw-bold mb-0" id="kpiUnmapped">—</h4>
@@ -72,7 +72,7 @@
             <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
                 <div>
                     <h5 class="mb-0">Ringkasan per SubDist</h5>
-                    <small class="text-muted">Sumber: LISTING_CLAIM EPM · hanya SubDist ter-mapping · Selisih = Total − file exec sebelumnya</small>
+                    <small class="text-muted">Match ShipTo = OutletID · ringkasan Parent · Total = Parent + Child di grup · Selisih = Total − file exec sebelumnya</small>
                 </div>
             </div>
             <div class="card-body">
@@ -135,18 +135,77 @@
                 </ul>
                 <div class="tab-content">
                     <div class="tab-pane fade show active" id="pane-detail-trx" role="tabpanel">
-                        <div class="card-datatable table-responsive">
-                            <table class="table table-bordered table-hover table-sm align-middle w-100 df-dt-grid" id="tblClaimDetail" style="width:100%">
+                        <style>
+                            .df-trx-scroll { overflow-x: auto; max-width: 100%; }
+                            .df-trx-table th:first-child,
+                            .df-trx-table td:first-child {
+                                position: sticky; left: 0; z-index: 2;
+                                background: var(--bs-body-bg, #fff);
+                                box-shadow: 1px 0 0 rgba(67, 89, 113, 0.12);
+                            }
+                            .df-trx-table thead th:first-child { z-index: 3; }
+                            .df-trx-table th:last-child,
+                            .df-trx-table td:last-child {
+                                position: sticky; right: 0; z-index: 2;
+                                background: var(--bs-body-bg, #fff);
+                                box-shadow: -1px 0 0 rgba(67, 89, 113, 0.12);
+                            }
+                            .df-trx-table thead th:last-child { z-index: 3; }
+                            .df-trx-table.compact td,
+                            .df-trx-table.compact th {
+                                padding-top: 0.3rem; padding-bottom: 0.3rem;
+                                font-size: 0.8125rem;
+                            }
+                            .df-trx-code { display: none; font-size: 0.75rem; color: #a1acb8; line-height: 1.2; }
+                            .df-trx-table.show-codes .df-trx-code { display: block; }
+                            .df-trx-name { font-weight: 500; }
+                            .df-trx-total { font-weight: 600; font-variant-numeric: tabular-nums; }
+                            .df-trx-date { font-variant-numeric: tabular-nums; white-space: nowrap; }
+                        </style>
+                        <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-2" id="trxToolbar">
+                            <div class="row g-2 flex-grow-1 align-items-end">
+                                <div class="col-6 col-md-2">
+                                    <label class="form-label small mb-1" for="filterTrxDateFrom">Dari tanggal</label>
+                                    <input type="date" id="filterTrxDateFrom" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-6 col-md-2">
+                                    <label class="form-label small mb-1" for="filterTrxDateTo">Sampai</label>
+                                    <input type="date" id="filterTrxDateTo" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <label class="form-label small mb-1" for="filterTrxSearch">Cari</label>
+                                    <input type="search" id="filterTrxSearch" class="form-control form-control-sm"
+                                        placeholder="Customer / item / referensi / no. transaksi">
+                                </div>
+                                <div class="col-auto d-flex flex-wrap gap-3 pb-1">
+                                    <div class="form-check mb-0">
+                                        <input class="form-check-input" type="checkbox" id="chkTrxShowCodes">
+                                        <label class="form-check-label small" for="chkTrxShowCodes">Tampilkan kode</label>
+                                    </div>
+                                    <div class="form-check mb-0">
+                                        <input class="form-check-input" type="checkbox" id="chkTrxCompact">
+                                        <label class="form-check-label small" for="chkTrxCompact">Compact</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="button" id="btnTrxResetFilter" class="btn btn-outline-secondary btn-sm">Reset</button>
+                                <button type="button" id="btnTrxExport" class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-download me-1"></i>Export CSV
+                                </button>
+                            </div>
+                        </div>
+                        <p class="small text-muted mb-2" id="trxFilterHint"></p>
+                        <div class="card-datatable table-responsive df-trx-scroll">
+                            <table class="table table-bordered table-hover table-sm align-middle w-100 df-dt-grid df-trx-table" id="tblClaimDetail" style="width:100%">
                                 <thead>
                                     <tr>
-                                        <th>Tgl Trx</th>
-                                        <th>No Trx</th>
-                                        <th>Cust No</th>
-                                        <th>Cust Name</th>
+                                        <th>Tanggal</th>
+                                        <th>No. Transaksi</th>
+                                        <th>Customer</th>
                                         <th>Item</th>
-                                        <th>Nama Item</th>
-                                        <th>Surat Referensi</th>
-                                        <th>Total (Rp)</th>
+                                        <th>Referensi</th>
+                                        <th class="text-end">Total (Rp)</th>
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
@@ -179,10 +238,11 @@
                                 <thead>
                                     <tr>
                                         <th>Kode KMMD</th>
-                                        <th>Nama Child</th>
-                                        <th>Titik</th>
-                                        <th>Branch EPM</th>
+                                        <th>Nama Subdist</th>
                                         <th>Status</th>
+                                        <th>Branch EPM</th>
+                                        <th>Linked At</th>
+                                        <th>Budget Monitoring (Rp)</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tblDetailChildBody"></tbody>
