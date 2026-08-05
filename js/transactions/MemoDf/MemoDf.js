@@ -235,11 +235,13 @@ var MemoDfPage = {
         return MemoDfStore.parseCurrency($("#fldBudgetMemo").val());
     },
 
-    /** Max Subdist yang bisa dipilih di grup = floor(totalBudgetQp / minimal) */
+    /** Max pilihan di grup = min(floor(total QP ÷ minimal), jumlah Subdist di grup) */
     maxSlotsInGroup: function (g) {
         var min = this.headerBudget();
         if (isNaN(min) || min <= 0) return 0;
-        return Math.floor((Number(g.totalBudgetQp) || 0) / min);
+        var byBudget = Math.floor((Number(g.totalBudgetQp) || 0) / min);
+        var byMembers = (g.members && g.members.length) ? g.members.length : 0;
+        return Math.max(0, Math.min(byBudget, byMembers));
     },
 
     selectedCountInGroup: function (g) {
@@ -319,15 +321,19 @@ var MemoDfPage = {
             }
             if (ok) {
                 $card.addClass("border-success");
+                var note = "";
+                if (used >= max) note = ' <span class="text-danger">· kuota penuh</span>';
+                else if (rem < min) note = ' <span class="text-danger">· sisa &lt; 1× minimal</span>';
                 $quota.html(
-                    "Kuota: <strong>" + used + " / " + max + "</strong> Subdist · sisa kapasitas " +
-                    MemoDfStore.formatRp(rem) +
-                    (rem < min ? " <span class=\"text-danger\">(tidak cukup 1 slot lagi)</span>" : "")
+                    "Kuota pilihan: <strong>" + used + " / " + max + "</strong>" +
+                    " (dari " + g.members.length + " Subdist) · sisa kapasitas " +
+                    MemoDfStore.formatRp(rem) + note
                 );
             } else {
                 $card.addClass("border-warning opacity-50");
                 $quota.html(
-                    "Tidak memenuhi — total grup &lt; Minimal Budget (" + MemoDfStore.formatRp(min) + ")"
+                    "Tidak memenuhi — total grup " + MemoDfStore.formatRp(g.totalBudgetQp) +
+                    " &lt; Minimal " + MemoDfStore.formatRp(min)
                 );
             }
         });
@@ -342,7 +348,8 @@ var MemoDfPage = {
             $("#createEligibleGroups").text(eligibleCount + " / " + this.groups.length);
             $("#createBudgetHint").text(
                 "Minimal " + MemoDfStore.formatRp(min) +
-                " / Subdist. Kuota grup = floor(total QP ÷ minimal). Contoh 11,5M ÷ 5M → max 2."
+                " / pilihan. Kuota grup = min(floor(total QP ÷ minimal), jumlah Subdist). " +
+                "Contoh total 11,5M ÷ 5M → max 2 (bukan ratusan)."
             );
         }
 
