@@ -235,6 +235,11 @@ class Layout {
                                     <div data-i18n="Monitoring SubDist">Monitoring SubDist</div>
                                 </a>
                             </li>
+                            <li class="menu-item">
+                                <a href="${this.basePath}transactions/memo-df.html" class="menu-link">
+                                    <div data-i18n="Memo DF">Memo DF</div>
+                                </a>
+                            </li>
                         </ul>
                     </li>
 

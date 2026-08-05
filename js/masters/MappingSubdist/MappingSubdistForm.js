@@ -12,20 +12,78 @@ const MappingSubdistForm = {
     activityTable: null,
     activityLovTable: null,
 
-    init: async function () {
+    /**
+     * @param {object} [opts]
+     * @param {boolean} [opts.skipUrlLoad] — SPA: jangan load dari querystring di init
+     * @param {function} [opts.onBack] — dipanggil saat Kembali / data tidak ditemukan
+     */
+    init: async function (opts) {
+        opts = opts || {};
+        this.onBack = typeof opts.onBack === 'function'
+            ? opts.onBack
+            : function () { window.location.href = 'mapping-subdist.html'; };
+
         await MappingSubdistStore.ensureSwal();
         await this.ensureDataTables();
 
-        const params = new URLSearchParams(window.location.search);
-        this.itemId = params.get('id');
         this.readOnly = !MappingSubdistStore.canEdit();
-
         this.fillDatalists();
         this.bindEvents();
+
+        if (!opts.skipUrlLoad) {
+            const params = new URLSearchParams(window.location.search);
+            this.itemId = params.get('id');
+            this.loadForm();
+            this.applyReadOnly();
+            this.syncRoleVisibility();
+            this.applyBosnetLockUI();
+        }
+    },
+
+    openNew: function () {
+        this.itemId = null;
+        this.readOnly = !MappingSubdistStore.canEdit();
+        this.clearFormFields();
         this.loadForm();
         this.applyReadOnly();
         this.syncRoleVisibility();
         this.applyBosnetLockUI();
+        this.refreshMappingSections();
+    },
+
+    openEdit: function (id) {
+        this.itemId = id;
+        this.readOnly = !MappingSubdistStore.canEdit();
+        this.clearFormFields();
+        const ok = this.loadForm();
+        if (ok === false) return false;
+        this.applyReadOnly();
+        this.syncRoleVisibility();
+        this.applyBosnetLockUI();
+        this.refreshMappingSections();
+        return true;
+    },
+
+    clearFormFields: function () {
+        const form = document.getElementById('formSubdist');
+        if (!form) return;
+        document.getElementById('editId').value = '';
+        document.getElementById('fldShipToSiteUseId').value = '';
+        document.getElementById('fldKodeKmmd').value = '';
+        document.getElementById('fldNamaKmmd').value = '';
+        document.getElementById('fldTipeKmmd').value = '';
+        document.getElementById('fldRegion').value = '';
+        document.getElementById('fldGroupType').value = '';
+        document.getElementById('fldNamaGroup').value = '';
+        document.getElementById('fldKodeBranch').value = '';
+        document.getElementById('fldBranchEpm').value = '';
+        document.getElementById('fldAlamat').value = '';
+        document.getElementById('fldActive').checked = true;
+        this.bosnetLocked = false;
+        const childBody = document.getElementById('tblChildBody');
+        if (childBody) childBody.innerHTML = '';
+        const actBody = document.getElementById('tblActivityBody');
+        if (actBody) actBody.innerHTML = '';
     },
 
     ensureDataTables: async function () {
@@ -46,10 +104,20 @@ const MappingSubdistForm = {
     },
 
     bindEvents: function () {
+        if (this._eventsBound) return;
+        this._eventsBound = true;
+
         document.getElementById('formSubdist').addEventListener('submit', (e) => {
             e.preventDefault();
             this.save();
         });
+
+        const btnBack = document.getElementById('btnBack');
+        if (btnBack) {
+            btnBack.addEventListener('click', () => {
+                if (typeof this.onBack === 'function') this.onBack();
+            });
+        }
 
         document.getElementById('fldGroupType').addEventListener('change', () => {
             this.syncGroupUI();
@@ -290,14 +358,14 @@ const MappingSubdistForm = {
             document.getElementById('fldTipeKmmd').value = '';
             this.setParentChoice('YA');
             this.bosnetLocked = false;
-            return;
+            return true;
         }
 
         const item = MappingSubdistStore.getById(this.itemId);
         if (!item) {
             MappingSubdistStore.toast('error', 'Data tidak ditemukan');
-            window.location.href = 'mapping-subdist.html';
-            return;
+            if (typeof this.onBack === 'function') this.onBack();
+            return false;
         }
 
         title.textContent = 'Edit';
@@ -321,12 +389,41 @@ const MappingSubdistForm = {
         this.bosnetLocked = true;
         this.applyBosnetLockUI();
         this.syncRoleVisibility();
+        return true;
     },
 
     applyReadOnly: function () {
-        if (!this.readOnly) return;
         const form = document.getElementById('formSubdist');
+        if (!form) return;
+
+        if (!this.readOnly) {
+            Array.from(form.elements).forEach(el => {
+                if (el.tagName === 'BUTTON' || el.type === 'submit') {
+                    el.style.display = '';
+                    return;
+                }
+                // identitas Bosnet tetap dikunci via applyBosnetLockUI
+                if (el.id === 'fldKodeKmmd' || el.id === 'fldNamaKmmd' || el.id === 'fldTipeKmmd'
+                    || el.id === 'fldRegion' || el.id === 'fldKodeBranch' || el.id === 'fldBranchEpm') {
+                    return;
+                }
+                el.disabled = false;
+            });
+            const btnSave = document.getElementById('btnSave');
+            if (btnSave) btnSave.style.display = '';
+            const btnAdd = document.getElementById('btnAddChild');
+            if (btnAdd) btnAdd.style.display = '';
+            const btnAddAct = document.getElementById('btnAddActivity');
+            if (btnAddAct) btnAddAct.style.display = '';
+            return;
+        }
+
         Array.from(form.elements).forEach(el => {
+            if (el.id === 'btnBack') {
+                el.style.display = '';
+                el.disabled = false;
+                return;
+            }
             if (el.tagName === 'BUTTON' || el.type === 'submit') {
                 el.style.display = 'none';
                 return;

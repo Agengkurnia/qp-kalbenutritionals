@@ -447,8 +447,9 @@ const MappingSubdistStore = {
     },
 
     formUrl: function (id) {
-        const base = 'mapping-subdist-form.html';
-        return id ? `${base}?id=${encodeURIComponent(id)}` : base;
+        const base = 'mapping-subdist.html';
+        if (id) return `${base}?id=${encodeURIComponent(id)}`;
+        return `${base}?new=1`;
     }
 };
 

@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="id" class="light-style layout-navbar-fixed layout-menu-fixed" dir="ltr" data-theme="theme-default"
+    data-assets-path="../assets/" data-template="vertical-menu-template">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memo DF (Setting QP) - Development Fund</title>
+    <style>
+        .memo-group-card.border-warning { border-width: 2px !important; }
+        .memo-group-card.border-success { border-width: 1px !important; }
+        #fldBudgetMemo { font-variant-numeric: tabular-nums; }
+        .memo-kpi-label { font-size: 0.75rem; color: #a1acb8; }
+    </style>
+</head>
+
+<body>
+    <div id="app-content">
+
+        <!-- ===== INDEX ===== -->
+        <div id="PanelIndex">
+            <div class="d-flex flex-wrap justify-content-between align-items-start mb-3 gap-2">
+                <div>
+                    <h4 class="fw-bold mb-1">
+                        <span class="text-muted fw-light">Transaction /</span> Memo DF
+                    </h4>
+                    <p class="text-muted mb-0 small">
+                        Memo setting diskon Development Fund (1 memo = 1 KMMD). Nomor:
+                        <code>DF_CCD/01/{MM}/{YY}/{NNNN}</code> — counter reset per bulan.
+                    </p>
+                </div>
+                <button type="button" id="btnAddMemo" class="btn btn-success btn-sm">
+                    <i class="fas fa-plus me-1"></i>Add
+                </button>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="card-title mb-0">Daftar Memo</h5>
+                        <small class="text-muted" id="memoCountLabel">0 memo</small>
+                    </div>
+                    <div class="table-responsive">
+                        <table id="tblMemoDf" class="table table-bordered table-sm w-100" style="width:100%">
+                            <thead>
+                                <tr>
+                                    <th class="text-center">Lihat</th>
+                                    <th>No. Memo</th>
+                                    <th>Nama Memo</th>
+                                    <th>Kode KMMD</th>
+                                    <th>Nama KMMD</th>
+                                    <th>Group</th>
+                                    <th class="text-end">Budget Memo</th>
+                                    <th>Dibuat</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== CREATE ===== -->
+        <div id="PanelCreate" class="d-none">
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+                <div>
+                    <h4 class="fw-bold mb-1">
+                        <span class="text-muted fw-light">Transaction / Memo DF /</span> Tambah
+                    </h4>
+                    <p class="text-muted mb-0 small">
+                        Minimal Budget = biaya 1 slot per Subdist di grup.
+                        Contoh: total grup 11,5M &amp; minimal 5M → max 2 Subdist (5+5=10; sisa 1,5 tidak cukup).
+                    </p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="button" id="btnCancelCreate" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-arrow-left me-1"></i>Kembali
+                    </button>
+                    <button type="button" id="btnSaveMemo" class="btn btn-primary btn-sm">
+                        <i class="fas fa-save me-1"></i>Simpan
+                    </button>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header"><strong>Header Memo</strong></div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label" for="fldNamaMemo">Nama Memo <span class="text-danger">*</span></label>
+                            <input type="text" id="fldNamaMemo" class="form-control" maxlength="200"
+                                placeholder="Contoh: Memo DF Agustus 2026">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="fldBudgetMemo">Minimal Budget (Rp) <span class="text-danger">*</span></label>
+                            <input type="text" id="fldBudgetMemo" class="form-control"
+                                placeholder="Contoh: 5000000000" inputmode="numeric">
+                            <div class="form-text">
+                                Format otomatis: <code>5.000.000.000</code>. Tiap Subdist terpilih memakai
+                                <strong>1× nilai ini</strong> dari total Budget QP grup
+                                (kuota = floor(total grup ÷ minimal)).
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="fldDescMemo">Description</label>
+                            <textarea id="fldDescMemo" class="form-control" rows="2"
+                                placeholder="Keterangan memo (opsional)"></textarea>
+                        </div>
+                    </div>
+                    <div class="row g-3 mt-1">
+                        <div class="col-sm-4">
+                            <div class="memo-kpi-label">Subdist terpilih</div>
+                            <div class="fw-bold" id="createSelectedCount">0</div>
+                        </div>
+                        <div class="col-sm-4">
+                            <div class="memo-kpi-label">Grup memenuhi minimal</div>
+                            <div class="fw-bold" id="createEligibleGroups">—</div>
+                        </div>
+                        <div class="col-sm-4">
+                            <div class="memo-kpi-label">Petunjuk</div>
+                            <div class="small text-muted" id="createBudgetHint">Isi Minimal Budget terlebih dahulu.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <strong>Detail — Subdist ter-mapping</strong>
+                    <small class="text-muted">Kuota per grup · sisa &lt; minimal → checkbox lain disabled</small>
+                </div>
+                <div class="card-body" id="memoGroupList">
+                    <!-- groups rendered by JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== VIEW ===== -->
+        <div id="PanelView" class="d-none">
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+                <div>
+                    <h4 class="fw-bold mb-1">
+                        <span class="text-muted fw-light">Transaction / Memo DF /</span> Detail
+                    </h4>
+                    <p class="text-muted mb-0"><code id="viewNomor">—</code></p>
+                </div>
+                <button type="button" id="btnBackFromView" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-arrow-left me-1"></i>Kembali
+                </button>
+            </div>
+            <div class="card">
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="memo-kpi-label">Nama Memo</div>
+                            <div id="viewNama">—</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="memo-kpi-label">Budget Memo (baris / Subdist)</div>
+                            <div class="fw-bold" id="viewBudget">—</div>
+                        </div>
+                        <div class="col-12">
+                            <div class="memo-kpi-label">Description</div>
+                            <div id="viewDesc">—</div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="memo-kpi-label" id="viewMinBudgetLabel">Minimal Budget (filter)</div>
+                            <div id="viewHeaderBudget">—</div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="memo-kpi-label">Kode KMMD</div>
+                            <div><code id="viewKode">—</code></div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="memo-kpi-label">Nama KMMD</div>
+                            <div id="viewNamaKmmd">—</div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="memo-kpi-label">Group</div>
+                            <div id="viewGroup">—</div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="memo-kpi-label">Peran</div>
+                            <div id="viewParent">—</div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="memo-kpi-label">ShipTo</div>
+                            <div id="viewShipTo">—</div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="memo-kpi-label">Dibuat</div>
+                            <div id="viewCreated">—</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="../js/layout.js"></script>
+    <script src="../js/shared/MockBiLedger.js"></script>
+    <script src="../js/masters/MappingSubdist/seed-data.js"></script>
+    <script src="../js/masters/MappingSubdist/MappingSubdistStore.js"></script>
+    <script src="../js/masters/MappingSubdist/DfDataTable.js"></script>
+    <script src="../js/transactions/MemoDf/MemoDfStore.js"></script>
+    <script src="../js/transactions/MemoDf/MemoDf.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            new Layout().init();
+        });
+        document.addEventListener('layoutReady', () => {
+            MemoDfPage.init();
+        });
+    </script>
+</body>
+
+</html>

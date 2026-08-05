@@ -6,67 +6,414 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mapping Subdist - Development Fund</title>
+    <style>
+        .df-section-label {
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: .05em;
+            text-transform: uppercase;
+            color: #a1acb8;
+            margin-bottom: .85rem;
+        }
+        #tblMappingSubdist thead .dynamic-input .form-control {
+            min-width: 6rem;
+            font-size: 0.8125rem;
+        }
+    </style>
 </head>
 
 <body>
     <div id="app-content">
-        <div class="card mb-4">
-            <div class="card-body">
-                <div class="row g-3 align-items-end">
-                    <div class="col-md-4">
-                        <label class="form-label" for="filterRegion">Region</label>
-                        <select id="filterRegion" class="form-select form-select-sm">
-                            <option value="">Semua Region</option>
-                        </select>
+        <!-- ===== INDEX ===== -->
+        <div id="PanelIndex">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label" for="filterRegion">Region</label>
+                            <select id="filterRegion" class="form-select form-select-sm">
+                                <option value="">Semua Region</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="filterGroupType">Group / Non Group</label>
+                            <select id="filterGroupType" class="form-select form-select-sm">
+                                <option value="">Semua</option>
+                                <option value="Group">Group</option>
+                                <option value="Non Group">Non Group</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 d-flex justify-content-end gap-2">
+                            <button type="button" id="btnFilter" class="btn btn-outline-primary btn-sm">Filter</button>
+                            <button type="button" id="btnAddSubdist" class="btn btn-success btn-sm">
+                                <i class="fas fa-plus me-1"></i>Tambah
+                            </button>
+                        </div>
                     </div>
-                    <div class="col-md-4">
-                        <label class="form-label" for="filterGroupType">Group / Non Group</label>
-                        <select id="filterGroupType" class="form-select form-select-sm">
-                            <option value="">Semua</option>
-                            <option value="Group">Group</option>
-                            <option value="Non Group">Non Group</option>
-                        </select>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4 class="card-title mb-0">Master Mapping Subdist</h4>
+                        <small class="text-muted" id="subdistCountLabel">0 data</small>
                     </div>
-                    <div class="col-md-4 d-flex justify-content-end gap-2">
-                        <button type="button" id="btnFilter" class="btn btn-outline-primary btn-sm">Filter</button>
-                        <button type="button" id="btnAddSubdist" class="btn btn-success btn-sm">
-                            <i class="fas fa-plus me-1"></i>Tambah
-                        </button>
+                    <div class="table-responsive">
+                        <table id="tblMappingSubdist" class="datatables-basic table table-bordered" style="width:100%">
+                            <thead>
+                                <tr>
+                                    <th class="text-center">Action</th>
+                                    <th>Kode KMMD</th>
+                                    <th>Nama KMMD</th>
+                                    <th>Group</th>
+                                    <th>Nama Group</th>
+                                    <th>Region</th>
+                                    <th>Child</th>
+                                    <th>Activity</th>
+                                </tr>
+                                <tr>
+                                    <th></th>
+                                    <th>
+                                        <div class="input-group input-group-sm dynamic-input">
+                                            <input class="form-control" id="SearchKMMDCode" type="text" placeholder="Search" />
+                                            <button type="button" class="btn btn-outline-primary btn-search-occ" title="Cari">
+                                                <i class="fas fa-search"></i>
+                                            </button>
+                                        </div>
+                                    </th>
+                                    <th>
+                                        <div class="input-group input-group-sm dynamic-input">
+                                            <input class="form-control" id="SearchKMMDName" type="text" placeholder="Search" />
+                                            <button type="button" class="btn btn-outline-primary btn-search-occ" title="Cari">
+                                                <i class="fas fa-search"></i>
+                                            </button>
+                                        </div>
+                                    </th>
+                                    <th></th>
+                                    <th>
+                                        <div class="input-group input-group-sm dynamic-input">
+                                            <input class="form-control" id="SearchGroupName" type="text" placeholder="Search" />
+                                            <button type="button" class="btn btn-outline-primary btn-search-occ" title="Cari">
+                                                <i class="fas fa-search"></i>
+                                            </button>
+                                        </div>
+                                    </th>
+                                    <th>
+                                        <div class="input-group input-group-sm dynamic-input">
+                                            <input class="form-control" id="SearchRegion" type="text" placeholder="Search" />
+                                            <button type="button" class="btn btn-outline-primary btn-search-occ" title="Cari">
+                                                <i class="fas fa-search"></i>
+                                            </button>
+                                        </div>
+                                    </th>
+                                    <th></th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="card">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h4 class="card-title mb-0">Master Mapping Subdist</h4>
-                    <small class="text-muted" id="subdistCountLabel">0 data</small>
+        <!-- ===== DETAIL ===== -->
+        <div id="PanelDetail" class="d-none">
+            <form id="formSubdist">
+                <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+                    <div>
+                        <h4 class="fw-bold mb-1">
+                            <span class="text-muted fw-light">Master / Mapping Subdist /</span>
+                            <span id="pageTitle">Detail</span>
+                        </h4>
+                        <p class="text-muted mb-0 small" id="pageSubtitle">Data subdist / KMMD</p>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="button" id="btnBack" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-arrow-left me-1"></i>Kembali
+                        </button>
+                        <button type="submit" id="btnSave" class="btn btn-primary btn-sm">
+                            <i class="fas fa-save me-1"></i>Simpan
+                        </button>
+                    </div>
                 </div>
-                <div class="table-responsive">
-                    <table id="tblMappingSubdist" class="datatables-basic table table-bordered" style="width:100%">
-                        <thead>
-                            <tr>
-                                <th>Kode KMMD</th>
-                                <th>Nama KMMD</th>
-                                <th>Group</th>
-                                <th>Nama Group</th>
-                                <th>Region</th>
-                                <th>Child</th>
-                                <th>Activity</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
+
+                <input type="hidden" id="editId">
+                <input type="hidden" id="fldShipToSiteUseId">
+                <input type="hidden" id="fldParent" value="YA">
+
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <div class="df-section-label">Identitas</div>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label" for="fldKodeKmmd">Kode KMMD (Bosnet) <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <input type="text" id="fldKodeKmmd" class="form-control" disabled placeholder="Autopopulate">
+                                    <button type="button" class="btn btn-outline-primary" id="btnLovKmmd" title="Pilih dari Bosnet">
+                                        <i class="fas fa-search"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label" for="fldNamaKmmd">Nama KMMD <span class="text-danger">*</span></label>
+                                <input type="text" id="fldNamaKmmd" class="form-control" disabled placeholder="Autopopulate">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="fldTipeKmmd">Tipe KMMD</label>
+                                <input type="text" id="fldTipeKmmd" class="form-control" disabled placeholder="Autopopulate">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="fldRegion">Region</label>
+                                <input type="text" id="fldRegion" class="form-control" disabled placeholder="Autopopulate">
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <div class="df-section-label">Group</div>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label" for="fldGroupType">Tipe <span class="text-danger">*</span></label>
+                                <select id="fldGroupType" class="form-select">
+                                    <option value="">— Pilih —</option>
+                                    <option value="Group">Group</option>
+                                    <option value="Non Group">Non Group</option>
+                                </select>
+                            </div>
+                            <div class="col-md-8" id="wrapNamaGroup" style="display: none;">
+                                <label class="form-label" for="fldNamaGroup">Nama Group <span class="text-danger">*</span></label>
+                                <input type="text" id="fldNamaGroup" class="form-control"
+                                    list="listNamaGroup" placeholder="contoh: CV. Kompas Sejahtera Group">
+                                <datalist id="listNamaGroup"></datalist>
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <div class="df-section-label">Cabang &amp; tambahan</div>
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label" for="fldKodeBranch">Kode Branch EPM</label>
+                                <input type="text" id="fldKodeBranch" class="form-control" disabled placeholder="Autopopulate">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="fldBranchEpm">Branch EPM</label>
+                                <input type="text" id="fldBranchEpm" class="form-control" disabled placeholder="Autopopulate">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="fldAlamat">Alamat</label>
+                                <textarea id="fldAlamat" class="form-control" rows="3" placeholder="Autopopulate"></textarea>
+                            </div>
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="fldActive" checked>
+                                    <label class="form-check-label" for="fldActive">Aktif</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-4" id="cardMappingTabs" style="display: none;">
+                    <div class="card-header border-bottom">
+                        <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="tab-child" data-bs-toggle="tab"
+                                    data-bs-target="#pane-child" type="button" role="tab">
+                                    Mapping Child
+                                    <span class="badge bg-label-primary ms-1" id="childCountBadge">0</span>
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="tab-activity" data-bs-toggle="tab"
+                                    data-bs-target="#pane-activity" type="button" role="tab">
+                                    Mapping Activity
+                                    <span class="badge bg-label-primary ms-1" id="activityCountBadge">0</span>
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="card-body tab-content pt-4">
+                        <div class="tab-pane fade show active" id="pane-child" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <small class="text-muted" id="childHint">Child di bawah parent ini (sumber: Bosnet).</small>
+                                <button type="button" id="btnAddChild" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-plus me-1"></i>Add
+                                </button>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-sm w-100" id="tblChild" style="width:100%">
+                                    <thead>
+                                        <tr>
+                                            <th class="text-center">Action</th>
+                                            <th>Kode KMMD</th>
+                                            <th>Nama KMMD</th>
+                                            <th>Linked At</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tblChildBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="pane-activity" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <small class="text-muted" id="activityHint">Activity yang di-mapping ke parent ini.</small>
+                                <button type="button" id="btnAddActivity" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-plus me-1"></i>Add
+                                </button>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-sm w-100" id="tblActivity" style="width:100%">
+                                    <thead>
+                                        <tr>
+                                            <th class="text-center">Action</th>
+                                            <th>Kode</th>
+                                            <th>Nama Activity</th>
+                                            <th>Kategori</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tblActivityBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Modal LOV Kode KMMD Bosnet -->
+            <div class="modal fade" id="modalLovBosnet" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Pilih KMMD Bosnet</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-sm w-100" id="tblBosnetLov" style="width:100%">
+                                    <thead>
+                                        <tr>
+                                            <th class="text-center">Action</th>
+                                            <th>OutletID</th>
+                                            <th>OutletName</th>
+                                            <th>SubdistID</th>
+                                            <th>SubdistName</th>
+                                            <th>Active</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tblBosnetLovBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Tutup</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal pick child -->
+            <div class="modal fade" id="modalPickChild" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Pilih Child (Bosnet)</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="text-muted small">Centang Subdist yang belum ter-mapping, lalu klik Tambahkan.</p>
+                            <div class="border rounded p-3 mb-3 bg-label-secondary bg-opacity-10">
+                                <label class="form-label fw-semibold mb-2">Periode berlaku</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="childPeriodMode" id="childPeriodCurrent" value="current" checked>
+                                    <label class="form-check-label" for="childPeriodCurrent">Bulan saat ini</label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="radio" name="childPeriodMode" id="childPeriodHistorical" value="historical">
+                                    <label class="form-check-label" for="childPeriodHistorical">Periode sebelumnya (wajib CSV LISTING_CLAIM)</label>
+                                </div>
+                                <div id="childPeriodHistoricalFields" class="d-none">
+                                    <label class="form-label" for="childPeriodMonth">Nama bulan</label>
+                                    <select id="childPeriodMonth" class="form-select form-select-sm mb-2"></select>
+                                    <label class="form-label" for="childPeriodCsv">Upload CSV LISTING_CLAIM</label>
+                                    <input type="file" id="childPeriodCsv" class="form-control form-control-sm" accept=".csv,text/csv">
+                                    <small class="text-muted">Format sama Monitoring Claim EPM; harus cocok branch child &amp; bulan dipilih.</small>
+                                </div>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-sm w-100" id="tblOrphan" style="width:100%">
+                                    <thead>
+                                        <tr>
+                                            <th class="text-center" style="width:40px;">
+                                                <input type="checkbox" class="form-check-input" id="chkOrphanAll" title="Pilih semua">
+                                            </th>
+                                            <th>OutletID</th>
+                                            <th>OutletName</th>
+                                            <th>SubdistID</th>
+                                            <th>SubdistName</th>
+                                            <th>Active</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tblOrphanBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="modal-footer justify-content-between">
+                            <small class="text-muted" id="orphanSelectedLabel">0 dipilih</small>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Tutup</button>
+                                <button type="button" class="btn btn-primary" id="btnConfirmPickChildren">Tambahkan</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal pick activity -->
+            <div class="modal fade" id="modalPickActivity" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Pilih Activity</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-sm w-100" id="tblActivityLov" style="width:100%">
+                                    <thead>
+                                        <tr>
+                                            <th class="text-center" style="width:40px;">
+                                                <input type="checkbox" class="form-check-input" id="chkActivityAll" title="Pilih semua">
+                                            </th>
+                                            <th>Kode</th>
+                                            <th>Nama</th>
+                                            <th>Kategori</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tblActivityLovBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Tutup</button>
+                            <button type="button" class="btn btn-primary" id="btnConfirmPickActivities">Tambahkan</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <script src="../js/layout.js"></script>
+    <script src="../js/shared/MockBiLedger.js"></script>
+    <script src="../js/shared/ListingClaimCsv.js"></script>
     <script src="../js/masters/MappingSubdist/seed-data.js"></script>
+    <script src="../js/masters/MappingSubdist/activity-seed.js"></script>
     <script src="../js/masters/MappingSubdist/MappingSubdistStore.js"></script>
     <script src="../js/masters/MappingSubdist/DfDataTable.js"></script>
+    <script src="../js/masters/MappingSubdist/MappingSubdistForm.js"></script>
     <script src="../js/masters/MappingSubdist/MappingSubdist.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {

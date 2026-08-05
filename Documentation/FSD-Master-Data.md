@@ -6,8 +6,8 @@
 | **Dokumen** | FSD Master Data (bagian 1) |
 | **Produk** | Development Fund Subdist — Kalbe Nutritionals (SHP) |
 | **Sistem** | **MAVEN** (setting master) |
-| **Versi** | 0.5 (ShipTo / OutletID; budget per Parent & Child) |
-| **Tanggal** | 29 Juli 2026 |
+| **Versi** | 0.6 (SPA Index↔Detail; column search; Action pencil) |
+| **Tanggal** | 3 Agustus 2026 |
 | **Sumber** | Prototype `QP Kalbe Nutritionals` + implementasi MAVEN + `Documentation/business-documentation.md` |
 | **Status** | Draft untuk kepentingan penyusunan FSD formal |
 
@@ -75,9 +75,12 @@ Modul untuk:
 
 | No | Halaman | Path prototype | Fungsi |
 |----|---------|----------------|--------|
-| 1 | Index (list) | `masters/mapping-subdist.html` | Daftar parent + filter + masuk detail |
-| 2 | Form tambah | `masters/mapping-subdist-form.html` | Create parent dari LOV Bosnet |
-| 3 | Form ubah / lihat | `masters/mapping-subdist-form.html?id={id}` | Update & mapping child/activity |
+| 1 | Index + Detail (SPA) | `masters/mapping-subdist.html` | List parent + filter + column search; Detail di panel yang sama |
+| 2 | Deep-link edit | `masters/mapping-subdist.html?id={id}` | Buka Panel Detail langsung |
+| 3 | Deep-link tambah | `masters/mapping-subdist.html?new=1` | Buka Panel Detail mode Tambah |
+| 4 | Form lama (redirect) | `masters/mapping-subdist-form.html` | Redirect ke SPA (`?id=` / `?new=1`) |
+
+**Produksi MAVEN:** Index + Detail SPA di `/DF/MappingSubdist` (`PanelIndex` / `PanelDetail`).
 
 ---
 
@@ -91,19 +94,22 @@ Modul untuk:
 **Alur utama:**
 1. User membuka Master → Mapping Subdist.
 2. Sistem menampilkan **hanya record Parent** (`Parent = YA`).
-3. User dapat memfilter **Region** dan **Group / Non Group**.
-4. User membuka detail via **klik Kode KMMD** pada baris (hyperlink). Tidak ada kolom / tombol Aksi Edit terpisah.
+3. User dapat memfilter **Region** dan **Group / Non Group** (tombol Filter).
+4. User dapat **search per kolom** (Kode KMMD, Nama KMMD, Nama Group, Region) via baris search di bawah header tabel (klik ikon search atau Enter).
+5. User membuka detail via **tombol Action (pencil)** pada baris. Kode KMMD ditampilkan plain text (bukan hyperlink).
 
 **Aturan:**
 - Child **tidak** ditampilkan di index.
 - Tombol **Delete tidak tersedia** di index (hapus fisik tidak didukung di UI).
 - Kolom **Titik** tidak ditampilkan di index.
+- Index ↔ Detail tanpa pindah halaman (SPA); Kembali mengembalikan ke list yang di-refresh.
 
 **Kolom list (informasi):**
 
 | Kolom | Keterangan |
 |-------|------------|
-| Kode KMMD | Kode Bosnet (`SubdistID`); link ke Detail |
+| Action | Tombol Edit (pencil) |
+| Kode KMMD | Kode Bosnet (`SubdistID`) |
 | Nama KMMD | Nama Subdist / KMMD |
 | Group | Badge Group / Non Group |
 | Nama Group | Nama joint group |
@@ -150,7 +156,7 @@ Modul untuk:
 **Aktor:** Administrator, CSD / RAS.
 
 **Alur:**
-1. User buka detail dari index (klik Kode KMMD).
+1. User buka detail dari index (tombol Action pencil / deep-link `?id=`).
 2. Field identitas Bosnet **disabled**; LOV Kode KMMD disabled.
 3. User dapat mengubah Group, Nama Group, Alamat, Aktif, serta mapping child/activity.
 4. User Simpan. Tombol **Kembali** / **Simpan** memakai ikon.
@@ -387,10 +393,10 @@ Untuk kelengkapan FSD formal, kebutuhan bisnis (dari dokumen project):
 
 | Area | Path |
 |------|------|
-| Index | `masters/mapping-subdist.html` |
-| Form | `masters/mapping-subdist-form.html` |
-| Logic list | `js/masters/MappingSubdist/MappingSubdist.js` |
-| Logic form | `js/masters/MappingSubdist/MappingSubdistForm.js` |
+| Index + Detail (SPA) | `masters/mapping-subdist.html` |
+| Form lama (redirect) | `masters/mapping-subdist-form.html` |
+| Logic list + SPA orchestrator | `js/masters/MappingSubdist/MappingSubdist.js` |
+| Logic form / detail | `js/masters/MappingSubdist/MappingSubdistForm.js` |
 | Store / rules | `js/masters/MappingSubdist/MappingSubdistStore.js` |
 | Seed Subdist / Bosnet | `js/masters/MappingSubdist/seed-data.js` |
 | Seed Activity | `js/masters/MappingSubdist/activity-seed.js` |
@@ -412,6 +418,7 @@ Untuk kelengkapan FSD formal, kebutuhan bisnis (dari dokumen project):
 | 0.4 | 28 Jul 2026 | Index tanpa kolom Aksi/Edit (navigasi via Kode KMMD); Titik dihapus dari UI; LOV Bosnet `vw_Outlet_Bosnet`; field identitas disabled + Autopopulate; Action kiri + DataTables/SweetAlert di Child/Activity; aligned MAVEN `/DF/MappingSubdist` |
 | 0.4.1 | 28 Jul 2026 | Prototype UI diselaraskan ke MAVEN: Index Filter+Tambah, card title, Detail btn-sm, tanpa Parent toggle, LOV disabled (bukan hidden) saat edit, DataTables language/layout |
 | 0.5 | 29 Jul 2026 | Field `txtShipToSiteUseId` (Bosnet OutletID); matching Monitoring Claim EPM via ShipTo; storage key `df_mapping_subdist_v3` |
+| 0.6 | 3 Agu 2026 | SPA Index↔Detail di `mapping-subdist.html`; column search + Action pencil; `formUrl` → `?id=` / `?new=1`; form.html redirect; Monitoring polish layout/copy |
 
 ---
 

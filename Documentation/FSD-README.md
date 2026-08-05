@@ -7,15 +7,16 @@ Indeks dokumen spesifikasi fungsional (draft dari prototype) dan dokumen penduku
 
 | No | Dokumen | Isi | Status |
 |----|---------|-----|--------|
-| **1** | [FSD/FSD_MasterData_MAVEN_v1.0.docx](./FSD/FSD_MasterData_MAVEN_v1.0.docx) | **Master Data** — Mapping Subdist (Parent/Child/Activity) | Draft v1.0 |
-| **2** | [FSD/FSD_ClaimEpmSync_MAVEN_v1.0.docx](./FSD/FSD_ClaimEpmSync_MAVEN_v1.0.docx) | **Claim EPM Sync** — Ingest LISTING_CLAIM | Draft v1.0 |
-| **3** | [FSD/FSD_MonitoringClaimEPM_MAVEN_v1.0.docx](./FSD/FSD_MonitoringClaimEPM_MAVEN_v1.0.docx) | **Monitoring Claim EPM** — ShipTo, Parent-only, Total grup | Draft v1.0 |
+| **1** | [FSD/FSD_MasterData_MAVEN_v3.0.docx](./FSD/FSD_MasterData_MAVEN_v3.0.docx) | **Master Data** — Mapping Subdist SPA (Index↔Detail, column search, Action pencil) | Draft **v3.0** (3 Agu 2026) |
+| **2** | [FSD/FSD_MonitoringSubdist_MAVEN_v3.0.docx](./FSD/FSD_MonitoringSubdist_MAVEN_v3.0.docx) | **Monitoring Subdist** — Ingest Hangfire + UI pantauan Claim EPM | Draft **v3.0** (3 Agu 2026) |
+
+Versi sebelumnya (tetap disimpan): [v2 Master Data](./FSD/FSD_MasterData_MAVEN_v2.0.docx), [v2 Monitoring](./FSD/FSD_MonitoringSubdist_MAVEN_v2.0.docx), [v1 Master Data](./FSD/FSD_MasterData_MAVEN_v1.0.docx), [v1 Monitoring Claim EPM](./FSD/FSD_MonitoringClaimEPM_MAVEN_v1.0.docx).
 
 ### Draft Markdown (bahan FSD)
 
 | Dokumen | Isi | Status |
 |---------|-----|--------|
-| [FSD-Master-Data.md](./FSD-Master-Data.md) | Mapping Subdist — Bosnet LOV + `txtShipToSiteUseId` (OutletID) | Draft v0.5 |
+| [FSD-Master-Data.md](./FSD-Master-Data.md) | Mapping Subdist — SPA, column search, Action; ShipTo/OutletID | Draft **v0.6** |
 | [FSD-Transaction-Monitoring-Claim-EPM.md](./FSD-Transaction-Monitoring-Claim-EPM.md) | Monitoring Claim EPM — ShipTo match, Parent-only, Total grup; paritas prototype↔MAVEN | **v1.0** |
 | [Claim-EPM-Sync-MAVEN.md](./Claim-EPM-Sync-MAVEN.md) | Ingest LISTING_CLAIM di MAVEN — grain ShipTo + migrate_shipTo_all | Implemented v0.1+ |
 | [FSD/FSD_ClaimEpmSync_MAVEN_v1.0.docx](./FSD/FSD_ClaimEpmSync_MAVEN_v1.0.docx) | FSD Claim EPM Sync (akan digabung ke doc #2) | Draft v1.0 |
