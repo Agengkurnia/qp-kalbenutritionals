@@ -7,10 +7,164 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Memo DF (Setting QP) - Development Fund</title>
     <style>
-        .memo-group-card.border-warning { border-width: 2px !important; }
-        .memo-group-card.border-success { border-width: 1px !important; }
         #fldBudgetMemo { font-variant-numeric: tabular-nums; }
         .memo-kpi-label { font-size: 0.75rem; color: #a1acb8; }
+
+        /* Create workspace */
+        .memo-create-workspace {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            padding-bottom: 5.5rem; /* room for sticky footer */
+        }
+        .memo-pill-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        .memo-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            background: #f5f5f9;
+            border: 1px solid #e7e7e7;
+            border-radius: 2rem;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.8rem;
+            color: #566a7f;
+        }
+        .memo-pill strong { color: #384551; }
+
+        .memo-split {
+            display: grid;
+            grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.15fr);
+            gap: 1rem;
+            align-items: stretch;
+            min-height: 420px;
+        }
+        @media (max-width: 991.98px) {
+            .memo-split { grid-template-columns: 1fr; min-height: 0; }
+        }
+
+        .memo-pane {
+            border: 1px solid #d9dee3;
+            border-radius: 0.5rem;
+            background: #fff;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-height: 360px;
+        }
+        .memo-pane-head {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #e7e7e7;
+            background: #f8f9fa;
+            flex-shrink: 0;
+        }
+        .memo-pane-body {
+            flex: 1;
+            overflow: auto;
+            max-height: min(58vh, 560px);
+        }
+
+        #tblMemoGroups { margin: 0; }
+        #tblMemoGroups tbody tr.memo-group-row { cursor: pointer; }
+        #tblMemoGroups tbody tr.memo-group-row:hover { background: rgba(105, 108, 255, 0.06); }
+        #tblMemoGroups tbody tr.memo-group-row.is-open {
+            background: rgba(105, 108, 255, 0.12);
+        }
+        #tblMemoGroups tbody tr.memo-group-row.is-eligible td:first-child {
+            box-shadow: inset 3px 0 0 #71dd37;
+        }
+        #tblMemoGroups tbody tr.memo-group-row.is-ineligible { opacity: 0.55; }
+
+        #memoGroupDetailHost { min-height: 100%; }
+        #memoGroupDetailHost.is-empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #a1acb8;
+            font-size: 0.875rem;
+            padding: 2rem 1.25rem;
+            text-align: center;
+            background: #fafafa;
+            min-height: 280px;
+        }
+
+        .memo-skeleton .sk {
+            height: 12px;
+            background: linear-gradient(90deg, #eee 25%, #f5f5f5 50%, #eee 75%);
+            background-size: 200% 100%;
+            animation: memoSk 1.1s ease-in-out infinite;
+            border-radius: 4px;
+            margin: 0.65rem 1rem;
+        }
+        @keyframes memoSk {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        .memo-selected-sticky {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1030;
+            background: #fff;
+            border-top: 1px solid #d9dee3;
+            box-shadow: 0 -6px 24px rgba(67, 89, 113, 0.12);
+            padding: 0.75rem 1rem;
+        }
+        .memo-selected-sticky .memo-sticky-inner {
+            max-width: 1320px;
+            margin: 0 auto;
+        }
+        .layout-menu-fixed .memo-selected-sticky {
+            /* stay under main content on xl — approximate with padding via container */
+        }
+        @media (min-width: 1200px) {
+            .memo-selected-sticky .memo-sticky-inner {
+                padding-left: 16.25rem; /* roughly beside Vuexy menu */
+            }
+        }
+
+        .memo-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            background: #e7e7ff;
+            color: #696cff;
+            border-radius: 1rem;
+            padding: 0.2rem 0.4rem 0.2rem 0.65rem;
+            font-size: 0.78rem;
+            margin: 0.15rem;
+            cursor: pointer;
+            border: 0;
+            max-width: 220px;
+        }
+        .memo-chip span.lbl {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .memo-chip .btn-chip-remove {
+            border: 0;
+            background: transparent;
+            color: #696cff;
+            line-height: 1;
+            padding: 0 0.25rem;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .memo-chip-wrap {
+            max-height: 3.25rem;
+            overflow-y: auto;
+        }
+
+        .memo-header-card.is-compact .memo-header-extra { display: none; }
+        #btnSaveMemoSticky:disabled,
+        #btnSaveMemo:disabled { opacity: 0.55; cursor: not-allowed; }
     </style>
 </head>
 
@@ -25,8 +179,8 @@
                         <span class="text-muted fw-light">Transaction /</span> Memo DF
                     </h4>
                     <p class="text-muted mb-0 small">
-                        Memo setting diskon Development Fund (1 memo = 1 KMMD). Nomor:
-                        <code>DF_CCD/01/{MM}/{YY}/{NNNN}</code> — counter reset per bulan.
+                        Memo setting diskon DF — 1 Subdist = 1 nomor
+                        <code>DF_CCD/01/{MM}/{YY}/{NNNN}</code>
                     </p>
                 </div>
                 <button type="button" id="btnAddMemo" class="btn btn-success btn-sm">
@@ -36,9 +190,15 @@
 
             <div class="card">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="card-title mb-0">Daftar Memo</h5>
-                        <small class="text-muted" id="memoCountLabel">0 memo</small>
+                    <div class="row g-2 align-items-end mb-3">
+                        <div class="col-md-5">
+                            <label class="form-label small mb-1" for="filterMemoSearch">Cari memo</label>
+                            <input type="search" id="filterMemoSearch" class="form-control form-control-sm"
+                                placeholder="No. memo / nama / kode KMMD">
+                        </div>
+                        <div class="col-md-7 text-md-end">
+                            <small class="text-muted" id="memoCountLabel">0 memo</small>
+                        </div>
                     </div>
                     <div class="table-responsive">
                         <table id="tblMemoDf" class="table table-bordered table-sm w-100" style="width:100%">
@@ -63,77 +223,132 @@
 
         <!-- ===== CREATE ===== -->
         <div id="PanelCreate" class="d-none">
-            <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
-                <div>
-                    <h4 class="fw-bold mb-1">
-                        <span class="text-muted fw-light">Transaction / Memo DF /</span> Tambah
-                    </h4>
-                    <p class="text-muted mb-0 small">
-                        Minimal Budget = biaya 1 slot per Subdist di grup.
-                        Contoh: total grup 11,5M &amp; minimal 5M → max 2 Subdist (5+5=10; sisa 1,5 tidak cukup).
-                    </p>
-                </div>
-                <div class="d-flex gap-2">
+            <div class="memo-create-workspace">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div>
+                        <h4 class="fw-bold mb-1">
+                            <span class="text-muted fw-light">Transaction / Memo DF /</span> Tambah
+                        </h4>
+                        <p class="text-muted mb-0 small">
+                            Isi header → pilih grup eligible → centang Subdist → Simpan.
+                        </p>
+                    </div>
                     <button type="button" id="btnCancelCreate" class="btn btn-outline-secondary btn-sm">
                         <i class="fas fa-arrow-left me-1"></i>Kembali
                     </button>
-                    <button type="button" id="btnSaveMemo" class="btn btn-primary btn-sm">
-                        <i class="fas fa-save me-1"></i>Simpan
-                    </button>
                 </div>
-            </div>
 
-            <div class="card mb-4">
-                <div class="card-header"><strong>Header Memo</strong></div>
-                <div class="card-body">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label" for="fldNamaMemo">Nama Memo <span class="text-danger">*</span></label>
-                            <input type="text" id="fldNamaMemo" class="form-control" maxlength="200"
-                                placeholder="Contoh: Memo DF Agustus 2026">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label" for="fldBudgetMemo">Minimal Budget (Rp) <span class="text-danger">*</span></label>
-                            <input type="text" id="fldBudgetMemo" class="form-control"
-                                placeholder="Contoh: 5000000000" inputmode="numeric">
-                            <div class="form-text">
-                                Format otomatis: <code>5.000.000.000</code>. Tiap Subdist terpilih memakai
-                                <strong>1× nilai ini</strong> dari total Budget QP grup
-                                (kuota = floor(total grup ÷ minimal)).
+                <!-- Header -->
+                <div class="card memo-header-card mb-0" id="memoHeaderCard">
+                    <div class="card-header d-flex justify-content-between align-items-center py-2">
+                        <strong>Header Memo</strong>
+                        <button type="button" class="btn btn-icon btn-sm btn-text-secondary" id="btnToggleHeader"
+                            title="Ciutkan" aria-label="Ciutkan header">
+                            <i class="fas fa-chevron-up" id="iconToggleHeader"></i>
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3 memo-header-extra">
+                            <div class="col-md-5">
+                                <label class="form-label" for="fldNamaMemo">Nama Memo <span class="text-danger">*</span></label>
+                                <input type="text" id="fldNamaMemo" class="form-control form-control-sm" maxlength="200"
+                                    placeholder="Contoh: Memo DF Agustus 2026">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="fldBudgetMemo">Minimal Budget (Rp) <span class="text-danger">*</span></label>
+                                <input type="text" id="fldBudgetMemo" class="form-control form-control-sm"
+                                    placeholder="5.000.000.000" inputmode="numeric">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="fldDescMemo">Description</label>
+                                <input type="text" id="fldDescMemo" class="form-control form-control-sm"
+                                    placeholder="Opsional">
                             </div>
                         </div>
-                        <div class="col-12">
-                            <label class="form-label" for="fldDescMemo">Description</label>
-                            <textarea id="fldDescMemo" class="form-control" rows="2"
-                                placeholder="Keterangan memo (opsional)"></textarea>
+                        <div class="memo-pill-bar mt-3" id="memoPillBar">
+                            <span class="memo-pill">Eligible <strong id="createEligibleGroups">—</strong></span>
+                            <span class="memo-pill">Terpilih <strong id="createSelectedCount">0</strong></span>
+                            <span class="memo-pill">Minimal <strong id="pillMinimal">—</strong></span>
+                            <span class="small text-muted ms-1" id="createBudgetHint"></span>
                         </div>
                     </div>
-                    <div class="row g-3 mt-1">
-                        <div class="col-sm-4">
-                            <div class="memo-kpi-label">Subdist terpilih</div>
-                            <div class="fw-bold" id="createSelectedCount">0</div>
+                </div>
+
+                <!-- Split: groups | detail -->
+                <div class="memo-split" id="memoSplit">
+                    <div class="memo-pane" id="memoPaneGroups">
+                        <div class="memo-pane-head">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <strong class="small text-uppercase text-muted mb-0">Grup Mapping</strong>
+                                <small class="text-muted" id="memoGroupVisibleLabel">0 grup</small>
+                            </div>
+                            <div class="row g-2 align-items-center">
+                                <div class="col">
+                                    <input type="search" id="filterGroupSearch" class="form-control form-control-sm"
+                                        placeholder="Cari nama group / region">
+                                </div>
+                                <div class="col-auto">
+                                    <div class="form-check mb-0">
+                                        <input class="form-check-input" type="checkbox" id="chkShowIneligible">
+                                        <label class="form-check-label small" for="chkShowIneligible">Semua</label>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="col-sm-4">
-                            <div class="memo-kpi-label">Grup memenuhi minimal</div>
-                            <div class="fw-bold" id="createEligibleGroups">—</div>
+                        <div class="memo-pane-body">
+                            <table class="table table-sm table-hover align-middle mb-0" id="tblMemoGroups">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th style="width:24px;"></th>
+                                        <th>Group</th>
+                                        <th class="text-end">Total QP</th>
+                                        <th class="text-center">Kuota</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tblMemoGroupsBody"></tbody>
+                            </table>
                         </div>
-                        <div class="col-sm-4">
-                            <div class="memo-kpi-label">Petunjuk</div>
-                            <div class="small text-muted" id="createBudgetHint">Isi Minimal Budget terlebih dahulu.</div>
+                    </div>
+
+                    <div class="memo-pane" id="memoPaneDetail">
+                        <div class="memo-pane-head d-flex justify-content-between align-items-center gap-2">
+                            <strong class="small text-uppercase text-muted mb-0">Detail Subdist</strong>
+                            <div class="d-flex gap-1 d-none" id="memoDetailActions">
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="btnPickQuota" title="Centang sesuai sisa kuota">
+                                    Pilih kuota
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="btnClearGroup">Clear</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="btnCloseDetail">Tutup</button>
+                            </div>
+                        </div>
+                        <div class="memo-pane-body is-empty" id="memoGroupDetailHost">
+                            Pilih grup di kiri untuk mencentang Subdist.
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="card mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <strong>Detail — Subdist ter-mapping</strong>
-                    <small class="text-muted">Kuota per grup · sisa &lt; minimal → checkbox lain disabled</small>
-                </div>
-                <div class="card-body" id="memoGroupList">
-                    <!-- groups rendered by JS -->
+            <!-- Sticky footer (only visible on create) -->
+            <div class="memo-selected-sticky d-none" id="memoSelectedSticky">
+                <div class="memo-sticky-inner d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div class="flex-grow-1" style="min-width:200px;">
+                        <div class="small text-muted mb-1">
+                            Terpilih (<span id="stickySelectedCount">0</span>) — klik chip untuk buka grup
+                        </div>
+                        <div class="memo-chip-wrap" id="memoSelectedChips">
+                            <span class="text-muted small">Belum ada Subdist dipilih.</span>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 flex-shrink-0">
+                        <button type="button" id="btnClearSelected" class="btn btn-outline-secondary btn-sm" disabled>Clear all</button>
+                        <button type="button" id="btnSaveMemoSticky" class="btn btn-primary btn-sm" disabled>
+                            <i class="fas fa-save me-1"></i>Simpan
+                        </button>
+                    </div>
                 </div>
             </div>
+            <!-- hidden primary save wired same handler -->
+            <button type="button" id="btnSaveMemo" class="d-none"></button>
         </div>
 
         <!-- ===== VIEW ===== -->
@@ -165,7 +380,7 @@
                             <div id="viewDesc">—</div>
                         </div>
                         <div class="col-md-4">
-                            <div class="memo-kpi-label" id="viewMinBudgetLabel">Minimal Budget (filter)</div>
+                            <div class="memo-kpi-label">Minimal Budget (filter)</div>
                             <div id="viewHeaderBudget">—</div>
                         </div>
                         <div class="col-md-4">

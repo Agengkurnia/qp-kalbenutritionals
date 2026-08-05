@@ -1,16 +1,24 @@
 /**
- * Memo DF (Setting QP) — Index list + Create SPA + View
+ * Memo DF — Index + Create (split pane) + View
  */
 "use strict";
 
 var MemoDfPage = {
     listTable: null,
     groups: [],
-    selected: {}, // id -> member
+    selected: {},
+    expandedKey: null,
+    headerCompact: false,
+    _loadTimer: null,
+    allMemoRows: [],
 
     init: async function () {
         if (typeof DfDataTable !== "undefined") {
             await DfDataTable.ensureAssets();
+        }
+        if (!sessionStorage.getItem("df_memo_cleansed_once")) {
+            MemoDfStore.clearAll();
+            sessionStorage.setItem("df_memo_cleansed_once", "1");
         }
         this.bindEvents();
         this.showPanel("index");
@@ -20,29 +28,70 @@ var MemoDfPage = {
     bindEvents: function () {
         var self = this;
         $("#btnAddMemo").on("click", function () { self.openCreate(); });
-        $("#btnBackIndex, #btnBackFromView").on("click", function () {
+        $("#btnBackIndex, #btnBackFromView, #btnCancelCreate").on("click", function () {
             self.showPanel("index");
             self.refreshList();
         });
-        $("#btnCancelCreate").on("click", function () {
-            self.showPanel("index");
-        });
-        $("#fldBudgetMemo").on("input", function () {
-            self.formatBudgetInput(this);
-            self.onHeaderBudgetChange();
+
+        $("#fldNamaMemo, #fldBudgetMemo, #fldDescMemo").on("input", function () {
+            if (this.id === "fldBudgetMemo") {
+                self.formatBudgetInput(this);
+                self.onHeaderBudgetChange();
+            }
+            self.updateSaveEnabled();
+            self.updatePills();
         });
         $("#fldBudgetMemo").on("blur", function () {
             self.formatBudgetInput(this);
         });
-        $("#btnSaveMemo").on("click", function () { self.saveCreate(); });
+
+        $("#btnSaveMemo, #btnSaveMemoSticky").on("click", function () { self.saveCreate(); });
+        $("#filterGroupSearch").on("input", function () { self.applyGroupFilters(); });
+        $("#chkShowIneligible").on("change", function () { self.applyGroupFilters(); });
+        $("#btnClearSelected").on("click", function () {
+            self.selected = {};
+            self.applyBudgetRules();
+        });
+        $("#btnToggleHeader").on("click", function () {
+            self.headerCompact = !self.headerCompact;
+            $("#memoHeaderCard").toggleClass("is-compact", self.headerCompact);
+            self.syncHeaderToggleIcon();
+        });
+        $("#btnCloseDetail").on("click", function () {
+            self.expandedKey = null;
+            self.renderDetailEmpty();
+            self.applyBudgetRules();
+        });
+        $("#btnClearGroup").on("click", function () { self.clearExpandedGroup(); });
+        $("#btnPickQuota").on("click", function () { self.pickQuotaInExpanded(); });
+
+        $("#filterMemoSearch").on("input", function () { self.applyMemoListFilter(); });
+
+        $(document).on("click", "#tblMemoGroupsBody tr.memo-group-row", function (e) {
+            if ($(e.target).closest("button, a, input").length) return;
+            self.toggleGroup(this.getAttribute("data-group-key"));
+        });
 
         $(document).on("change", ".chk-memo-subdist", function () {
             self.onMemberToggle(this);
         });
 
+        $(document).on("click", ".memo-chip", function (e) {
+            if ($(e.target).closest(".btn-chip-remove").length) return;
+            var id = this.getAttribute("data-id");
+            var g = self.findGroupForMember(id);
+            if (g) self.toggleGroup(g.key, true);
+        });
+
+        $(document).on("click", ".btn-chip-remove", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            delete self.selected[this.getAttribute("data-id")];
+            self.applyBudgetRules();
+        });
+
         $(document).on("click", ".btn-view-memo", function () {
-            var id = $(this).data("id");
-            self.openView(id);
+            self.openView($(this).data("id"));
         });
     },
 
@@ -50,11 +99,18 @@ var MemoDfPage = {
         $("#PanelIndex").toggleClass("d-none", name !== "index");
         $("#PanelCreate").toggleClass("d-none", name !== "create");
         $("#PanelView").toggleClass("d-none", name !== "view");
+        $("#memoSelectedSticky").toggleClass("d-none", name !== "create");
     },
 
     refreshList: function () {
-        var rows = MemoDfStore.load();
-        var data = rows.map(function (m) {
+        this.allMemoRows = MemoDfStore.load();
+        this.renderMemoTable(this.allMemoRows);
+        $("#memoCountLabel").text(this.allMemoRows.length + " memo");
+        $("#filterMemoSearch").val("");
+    },
+
+    renderMemoTable: function (rows) {
+        var data = (rows || []).map(function (m) {
             return [
                 '<button type="button" class="btn btn-sm btn-outline-primary btn-view-memo" data-id="' +
                     MemoDfPage.esc(m.id) + '"><i class="fas fa-eye"></i></button>',
@@ -82,24 +138,56 @@ var MemoDfPage = {
             ],
             order: [[7, "desc"]],
             language: Object.assign({}, DfDataTable.language, {
-                emptyTable: "Belum ada memo. Klik Add untuk membuat."
+                emptyTable: "Belum ada memo. Klik Add untuk membuat batch baru."
             })
         });
-        $("#memoCountLabel").text(rows.length + " memo");
+    },
+
+    applyMemoListFilter: function () {
+        var q = (($("#filterMemoSearch").val() || "") + "").trim().toLowerCase();
+        if (!q) {
+            this.renderMemoTable(this.allMemoRows);
+            $("#memoCountLabel").text(this.allMemoRows.length + " memo");
+            return;
+        }
+        var filtered = this.allMemoRows.filter(function (m) {
+            var blob = [m.nomorMemo, m.namaMemo, m.kodeKmmd, m.namaKmmd, m.namaGroup]
+                .join(" ").toLowerCase();
+            return blob.indexOf(q) >= 0;
+        });
+        this.renderMemoTable(filtered);
+        $("#memoCountLabel").text(filtered.length + " / " + this.allMemoRows.length + " memo");
+    },
+
+    syncHeaderToggleIcon: function () {
+        var $btn = $("#btnToggleHeader");
+        var $icon = $("#iconToggleHeader");
+        if (this.headerCompact) {
+            $icon.removeClass("fa-chevron-up").addClass("fa-chevron-down");
+            $btn.attr({ title: "Perluas", "aria-label": "Perluas header" });
+        } else {
+            $icon.removeClass("fa-chevron-down").addClass("fa-chevron-up");
+            $btn.attr({ title: "Ciutkan", "aria-label": "Ciutkan header" });
+        }
     },
 
     openCreate: function () {
         $("#fldNamaMemo").val("");
         $("#fldDescMemo").val("");
         $("#fldBudgetMemo").val("");
-        $("#createBudgetHint").text("Isi Minimal Budget untuk filter grup / Subdist yang memenuhi.");
-        $("#createSelectedCount").text("0");
-        $("#createEligibleGroups").text("—");
+        $("#filterGroupSearch").val("");
+        $("#chkShowIneligible").prop("checked", false);
+        this.headerCompact = false;
+        $("#memoHeaderCard").removeClass("is-compact");
+        this.syncHeaderToggleIcon();
         this.selected = {};
+        this.expandedKey = null;
         this.groups = MemoDfStore.buildSelectionGroups();
-        this.renderGroups();
+        this.renderGroupTable();
+        this.renderDetailEmpty();
         this.applyBudgetRules();
         this.showPanel("create");
+        this.updateSaveEnabled();
     },
 
     openView: function (id) {
@@ -112,7 +200,6 @@ var MemoDfPage = {
         $("#viewNama").text(m.namaMemo || "—");
         $("#viewDesc").text(m.description || "—");
         $("#viewHeaderBudget").text(MemoDfStore.formatRp(m.headerBudget));
-        $("#viewMinBudgetLabel").text("Minimal Budget (filter)");
         $("#viewBudget").text(MemoDfStore.formatRp(m.budgetMemo));
         $("#viewKode").text(m.kodeKmmd || "—");
         $("#viewNamaKmmd").text(m.namaKmmd || "—");
@@ -123,68 +210,236 @@ var MemoDfPage = {
         this.showPanel("view");
     },
 
-    renderGroups: function () {
-        var html = "";
+    findGroup: function (key) {
+        return this.groups.find(function (g) { return g.key === key; }) || null;
+    },
+
+    renderGroupTable: function () {
         var self = this;
+        var $body = $("#tblMemoGroupsBody");
         if (!this.groups.length) {
-            $("#memoGroupList").html(
-                '<div class="alert alert-warning mb-0">Belum ada Parent di Mapping Subdist.</div>'
+            $body.html(
+                '<tr><td colspan="4" class="text-center text-muted py-4">Belum ada Parent di Mapping Subdist.</td></tr>'
             );
             return;
         }
+        var html = "";
         this.groups.forEach(function (g) {
-            var fitsHeaderNote = "";
+            var region = (g.members[0] && g.members[0].region) || "";
             html +=
-                '<div class="card mb-3 memo-group-card" data-group-key="' + self.esc(g.key) + '">' +
-                '<div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2 py-2">' +
-                "<div><strong>" + self.esc(g.namaGroup) + "</strong>" +
-                ' <span class="badge bg-label-secondary ms-1">' + self.esc(g.groupType) + "</span>" +
-                ' <span class="badge bg-label-info ms-1">' + g.members.length + " Subdist</span></div>" +
-                '<div class="small text-muted text-end">' +
-                'Total Budget QP grup: <strong class="text-body">' +
-                MemoDfStore.formatRp(g.totalBudgetQp) + "</strong>" +
-                '<div class="memo-group-quota text-muted" data-group-quota="' + self.esc(g.key) + '">—</div>' +
-                "</div></div>" +
-                '<div class="card-body p-0">' +
-                '<div class="table-responsive">' +
-                '<table class="table table-sm table-bordered mb-0 align-middle">' +
-                "<thead><tr>" +
-                '<th class="text-center" style="width:40px;"></th>' +
-                "<th>Peran</th><th>Kode KMMD</th><th>Nama KMMD</th>" +
-                '<th class="text-end">Budget QP</th>' +
-                "</tr></thead><tbody>";
-
-            g.members.forEach(function (m) {
-                html +=
-                    "<tr data-member-id=\"" + self.esc(m.id) + "\">" +
-                    '<td class="text-center">' +
-                    '<input type="checkbox" class="form-check-input chk-memo-subdist" ' +
-                    'data-id="' + self.esc(m.id) + '" data-budget="' + (Number(m.budgetQp) || 0) + '" ' +
-                    'disabled title="Isi Budget Memo dulu">' +
-                    "</td>" +
-                    "<td>" + (m.parent === "YA"
-                        ? '<span class="badge bg-label-success">Parent</span>'
-                        : '<span class="badge bg-label-warning">Child</span>') + "</td>" +
-                    "<td><code>" + self.esc(m.kodeKmmd) + "</code></td>" +
-                    "<td>" + self.esc(m.namaKmmd) + "</td>" +
-                    '<td class="text-end">' + MemoDfStore.formatRp(m.budgetQp) + "</td>" +
-                    "</tr>";
-            });
-            html += "</tbody></table></div></div></div>";
+                '<tr class="memo-group-row" data-group-key="' + self.esc(g.key) + '" ' +
+                'data-search="' + self.esc((g.namaGroup + " " + region).toLowerCase()) + '">' +
+                '<td class="text-muted"><i class="fas fa-chevron-right memo-row-chevron small"></i></td>' +
+                "<td><div class=\"fw-semibold\">" + self.esc(g.namaGroup) + "</div>" +
+                '<div class="small text-muted">' + self.esc(region || g.groupType) +
+                " · " + g.members.length + " Subdist</div></td>" +
+                '<td class="text-end small">' + MemoDfStore.formatRp(g.totalBudgetQp) + "</td>" +
+                '<td class="text-center"><span data-col-quota="' + self.esc(g.key) + '">—</span></td>' +
+                "</tr>";
         });
-        $("#memoGroupList").html(html);
+        $body.html(html);
+    },
+
+    renderDetailEmpty: function (msg) {
+        if (this._loadTimer) {
+            clearTimeout(this._loadTimer);
+            this._loadTimer = null;
+        }
+        $("#memoDetailActions").addClass("d-none");
+        $("#memoGroupDetailHost")
+            .addClass("is-empty")
+            .html(msg || "Pilih grup di kiri untuk mencentang Subdist.");
+        $("#tblMemoGroupsBody tr.memo-group-row").removeClass("is-open");
+        $("#tblMemoGroupsBody .memo-row-chevron")
+            .removeClass("fa-chevron-down").addClass("fa-chevron-right");
+    },
+
+    renderSkeleton: function () {
+        $("#memoGroupDetailHost").removeClass("is-empty").html(
+            '<div class="memo-skeleton py-2">' +
+            '<div class="sk" style="width:55%"></div>' +
+            '<div class="sk" style="width:80%"></div>' +
+            '<div class="sk" style="width:70%"></div>' +
+            '<div class="sk" style="width:90%"></div>' +
+            '<div class="sk" style="width:65%"></div>' +
+            "</div>"
+        );
+    },
+
+    /**
+     * @param {string} key
+     * @param {boolean} [forceOpen] — jika true, jangan toggle close
+     */
+    toggleGroup: function (key, forceOpen) {
+        if (!forceOpen && this.expandedKey === key) {
+            this.expandedKey = null;
+            this.renderDetailEmpty();
+            return;
+        }
+        this.expandedKey = key;
+        this.openGroupWithLoading(key);
+    },
+
+    openGroupWithLoading: function (key) {
+        var self = this;
+        if (this._loadTimer) clearTimeout(this._loadTimer);
+
+        $("#tblMemoGroupsBody tr.memo-group-row").removeClass("is-open");
+        $("#tblMemoGroupsBody .memo-row-chevron")
+            .removeClass("fa-chevron-down").addClass("fa-chevron-right");
+        var $row = $('#tblMemoGroupsBody tr[data-group-key="' + key + '"]');
+        $row.addClass("is-open");
+        $row.find(".memo-row-chevron").removeClass("fa-chevron-right").addClass("fa-chevron-down");
+
+        this.renderSkeleton();
+        $("#memoDetailActions").addClass("d-none");
+
+        // Soft loading — terasa responsif, siap untuk API nanti
+        this._loadTimer = setTimeout(function () {
+            self._loadTimer = null;
+            if (self.expandedKey !== key) return;
+            self.renderGroupDetail(key);
+            self.applyBudgetRules();
+            self.scrollDetailIntoView();
+        }, 280);
+    },
+
+    scrollDetailIntoView: function () {
+        var el = document.getElementById("memoPaneDetail");
+        if (!el) return;
+        if (window.matchMedia("(max-width: 991.98px)").matches) {
+            el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+    },
+
+    renderGroupDetail: function (key) {
+        var g = this.findGroup(key);
+        var self = this;
+        if (!g) {
+            this.renderDetailEmpty();
+            return;
+        }
+
+        $("#memoDetailActions").removeClass("d-none");
+
+        var html =
+            '<div class="px-3 pt-3 pb-2 border-bottom">' +
+            "<div class=\"fw-semibold\">" + this.esc(g.namaGroup) + "</div>" +
+            '<div class="small text-muted" data-detail-quota="' + this.esc(g.key) + '">—</div>' +
+            "</div>" +
+            '<div class="table-responsive">' +
+            '<table class="table table-sm table-hover mb-0 align-middle">' +
+            "<thead class=\"table-light\"><tr>" +
+            '<th class="text-center" style="width:40px;"></th>' +
+            "<th>Peran</th><th>Kode</th><th>Nama</th>" +
+            '<th class="text-end">Budget QP</th>' +
+            "</tr></thead><tbody>";
+
+        g.members.forEach(function (m) {
+            html +=
+                '<tr data-member-id="' + self.esc(m.id) + '">' +
+                '<td class="text-center">' +
+                '<input type="checkbox" class="form-check-input chk-memo-subdist" ' +
+                'data-id="' + self.esc(m.id) + '" data-budget="' + (Number(m.budgetQp) || 0) + '">' +
+                "</td>" +
+                "<td>" + (m.parent === "YA"
+                    ? '<span class="badge bg-label-success">Parent</span>'
+                    : '<span class="badge bg-label-warning">Child</span>') + "</td>" +
+                "<td><code>" + self.esc(m.kodeKmmd) + "</code></td>" +
+                "<td>" + self.esc(m.namaKmmd) + "</td>" +
+                '<td class="text-end small">' + MemoDfStore.formatRp(m.budgetQp) + "</td>" +
+                "</tr>";
+        });
+        html += "</tbody></table></div>";
+
+        $("#memoGroupDetailHost").removeClass("is-empty").html(html);
+    },
+
+    clearExpandedGroup: function () {
+        var g = this.findGroup(this.expandedKey);
+        if (!g) return;
+        var self = this;
+        g.members.forEach(function (m) { delete self.selected[m.id]; });
+        this.applyBudgetRules();
+    },
+
+    pickQuotaInExpanded: function () {
+        var g = this.findGroup(this.expandedKey);
+        if (!g) return;
+        var max = this.maxSlotsInGroup(g);
+        if (max < 1) {
+            MappingSubdistStore.toast("warning", "Grup belum eligible — cek Minimal Budget");
+            return;
+        }
+        var self = this;
+        // Parent dulu, lalu child; isi sampai kuota
+        var ordered = g.members.slice().sort(function (a, b) {
+            if (a.parent === "YA" && b.parent !== "YA") return -1;
+            if (b.parent === "YA" && a.parent !== "YA") return 1;
+            return 0;
+        });
+        g.members.forEach(function (m) { delete self.selected[m.id]; });
+        var n = 0;
+        ordered.forEach(function (m) {
+            if (n >= max) return;
+            self.selected[m.id] = m;
+            n++;
+        });
+        this.applyBudgetRules();
+        MappingSubdistStore.toast("success", n + " Subdist dipilih sesuai kuota");
+    },
+
+    applyGroupFilters: function () {
+        var q = (($("#filterGroupSearch").val() || "") + "").trim().toLowerCase();
+        var showInelig = $("#chkShowIneligible").prop("checked");
+        var visible = 0;
+        var self = this;
+        var min = this.headerBudget();
+        var hasMin = !isNaN(min) && min > 0;
+
+        $("#tblMemoGroupsBody tr.memo-group-row").each(function () {
+            var key = this.getAttribute("data-group-key");
+            var g = self.findGroup(key);
+            var eligible = g ? self.isGroupEligible(g) : false;
+            var searchOk = !q || (this.getAttribute("data-search") || "").indexOf(q) >= 0;
+            var statusOk = !hasMin || showInelig || eligible;
+            var show = searchOk && statusOk;
+            $(this).toggle(show);
+            if (show) visible++;
+        });
+
+        $("#memoGroupVisibleLabel").text(visible + " tampil");
+
+        if (this.expandedKey) {
+            var $open = $('#tblMemoGroupsBody tr[data-group-key="' + this.expandedKey + '"]');
+            if (!$open.is(":visible")) {
+                this.expandedKey = null;
+                this.renderDetailEmpty("Grup tersembunyi filter — pilih grup lain.");
+            }
+        }
+
+        if (hasMin && visible === 0) {
+            var emptyHint = showInelig
+                ? "Tidak ada grup cocok pencarian."
+                : "Tidak ada grup eligible untuk " + MemoDfStore.formatRp(min) +
+                    ". Turunkan minimal atau centang “Semua”.";
+            if (!this.expandedKey) {
+                $("#memoGroupDetailHost").addClass("is-empty").html(emptyHint);
+            }
+        }
     },
 
     formatBudgetInput: function (el) {
         if (!el) return;
         var formatted = MemoDfStore.formatCurrencyInput(el.value);
-        if (el.value !== formatted) {
-            el.value = formatted;
-        }
+        if (el.value !== formatted) el.value = formatted;
     },
 
     onHeaderBudgetChange: function () {
         this.clearIneligibleSelection();
+        if (this.expandedKey) {
+            this.renderGroupDetail(this.expandedKey);
+        }
         this.applyBudgetRules();
     },
 
@@ -201,10 +456,7 @@ var MemoDfPage = {
             }
             if (!this.canSelectMoreInGroup(g)) {
                 el.checked = false;
-                MappingSubdistStore.toast(
-                    "warning",
-                    "Kuota grup penuh — sisa total Budget QP grup tidak cukup untuk 1× Minimal Budget lagi"
-                );
+                MappingSubdistStore.toast("warning", "Kuota grup penuh");
                 return;
             }
             this.selected[id] = member;
@@ -235,7 +487,6 @@ var MemoDfPage = {
         return MemoDfStore.parseCurrency($("#fldBudgetMemo").val());
     },
 
-    /** Max pilihan di grup = min(floor(total QP ÷ minimal), jumlah Subdist di grup) */
     maxSlotsInGroup: function (g) {
         var min = this.headerBudget();
         if (isNaN(min) || min <= 0) return 0;
@@ -253,7 +504,6 @@ var MemoDfPage = {
         return n;
     },
 
-    /** Sisa kapasitas grup setelah slot terpakai (tiap pilihan = 1× Minimal Budget) */
     remainingGroupCapacity: function (g) {
         var min = this.headerBudget();
         if (isNaN(min) || min <= 0) return 0;
@@ -268,10 +518,6 @@ var MemoDfPage = {
         return this.maxSlotsInGroup(g) >= 1;
     },
 
-    /**
-     * Buang pilihan di grup tidak eligible;
-     * jika minimal naik sehingga kuota turun, trim kelebihan (FIFO).
-     */
     clearIneligibleSelection: function () {
         var min = this.headerBudget();
         if (isNaN(min) || min <= 0) {
@@ -289,22 +535,54 @@ var MemoDfPage = {
                 return;
             }
             while (ids.length > max) {
-                var drop = ids.pop();
-                delete self.selected[drop];
+                delete self.selected[ids.pop()];
             }
         });
     },
 
-    /**
-     * Minimal Budget = unit slot per Subdist di dalam grup.
-     * Contoh: total grup 11,5M & minimal 5M → max 2 Subdist (5+5=10; sisa 1,5 tidak cukup).
-     */
+    updatePills: function () {
+        var min = this.headerBudget();
+        $("#pillMinimal").text(isNaN(min) || min <= 0 ? "—" : MemoDfStore.formatRp(min));
+        $("#createSelectedCount").text(String(Object.keys(this.selected).length));
+    },
+
+    updateSaveEnabled: function () {
+        var nama = ($("#fldNamaMemo").val() || "").trim();
+        var budget = this.headerBudget();
+        var ok = !!nama && !isNaN(budget) && budget > 0 && Object.keys(this.selected).length > 0;
+        $("#btnSaveMemoSticky, #btnSaveMemo").prop("disabled", !ok);
+    },
+
+    renderSelectedChips: function () {
+        var ids = Object.keys(this.selected);
+        $("#stickySelectedCount").text(String(ids.length));
+        $("#btnClearSelected").prop("disabled", ids.length === 0);
+        this.updatePills();
+        this.updateSaveEnabled();
+
+        if (!ids.length) {
+            $("#memoSelectedChips").html('<span class="text-muted small">Belum ada Subdist dipilih.</span>');
+            return;
+        }
+        var html = "";
+        var self = this;
+        ids.forEach(function (id) {
+            var m = self.selected[id];
+            html +=
+                '<button type="button" class="memo-chip" data-id="' + self.esc(id) + '" title="Buka grup">' +
+                '<span class="lbl">' + self.esc(m.kodeKmmd) + " · " + self.esc(m.namaKmmd) + "</span>" +
+                '<span class="btn-chip-remove" data-id="' + self.esc(id) + '" title="Hapus">&times;</span>' +
+                "</button>";
+        });
+        $("#memoSelectedChips").html(html);
+    },
+
     applyBudgetRules: function () {
         var min = this.headerBudget();
         var hasMin = !isNaN(min) && min > 0;
         var eligibleCount = 0;
-
         var self = this;
+
         this.groups.forEach(function (g) {
             var max = self.maxSlotsInGroup(g);
             var used = self.selectedCountInGroup(g);
@@ -312,45 +590,34 @@ var MemoDfPage = {
             var ok = max >= 1;
             if (ok) eligibleCount++;
 
-            var $card = $('.memo-group-card[data-group-key="' + g.key + '"]');
-            $card.removeClass("border-warning border-success opacity-50");
-            var $quota = $('[data-group-quota="' + g.key + '"]');
-            if (!hasMin) {
-                $quota.text("—");
-                return;
-            }
-            if (ok) {
-                $card.addClass("border-success");
-                var note = "";
-                if (used >= max) note = ' <span class="text-danger">· kuota penuh</span>';
-                else if (rem < min) note = ' <span class="text-danger">· sisa &lt; 1× minimal</span>';
-                $quota.html(
-                    "Kuota pilihan: <strong>" + used + " / " + max + "</strong>" +
-                    " (dari " + g.members.length + " Subdist) · sisa kapasitas " +
-                    MemoDfStore.formatRp(rem) + note
-                );
-            } else {
-                $card.addClass("border-warning opacity-50");
-                $quota.html(
-                    "Tidak memenuhi — total grup " + MemoDfStore.formatRp(g.totalBudgetQp) +
-                    " &lt; Minimal " + MemoDfStore.formatRp(min)
-                );
+            var $row = $('#tblMemoGroupsBody tr[data-group-key="' + g.key + '"]');
+            $row.toggleClass("is-eligible", hasMin && ok);
+            $row.toggleClass("is-ineligible", hasMin && !ok);
+
+            var $q = $('[data-col-quota="' + g.key + '"]');
+            if (!hasMin) $q.html('<span class="text-muted">—</span>');
+            else if (ok) $q.html("<strong>" + used + "/" + max + "</strong>");
+            else $q.html('<span class="text-muted">0</span>');
+
+            var $dq = $('[data-detail-quota="' + g.key + '"]');
+            if ($dq.length) {
+                if (!hasMin) $dq.text("Isi Minimal Budget di header");
+                else {
+                    var note = used >= max ? " · kuota penuh" : (rem < min ? " · sisa < 1 slot" : "");
+                    $dq.text(
+                        "Kuota " + used + "/" + max +
+                        " · sisa " + MemoDfStore.formatRp(rem) + note
+                    );
+                }
             }
         });
 
-        $("#createSelectedCount").text(String(Object.keys(this.selected).length));
         if (!hasMin) {
             $("#createEligibleGroups").text("—");
-            $("#createBudgetHint").text(
-                "Isi Minimal Budget. Tiap Subdist terpilih memakai 1× nilai itu dari total Budget QP grup."
-            );
+            $("#createBudgetHint").text("Isi Minimal Budget untuk melihat grup eligible.");
         } else {
             $("#createEligibleGroups").text(eligibleCount + " / " + this.groups.length);
-            $("#createBudgetHint").text(
-                "Minimal " + MemoDfStore.formatRp(min) +
-                " / pilihan. Kuota grup = min(floor(total QP ÷ minimal), jumlah Subdist). " +
-                "Contoh total 11,5M ÷ 5M → max 2 (bukan ratusan)."
-            );
+            $("#createBudgetHint").text("Default: hanya eligible. Centang “Semua” untuk lihat yang di bawah.");
         }
 
         $(".chk-memo-subdist").each(function () {
@@ -370,28 +637,25 @@ var MemoDfPage = {
                 this.checked = false;
                 this.disabled = true;
                 delete self.selected[id];
-                this.title = "Total Budget QP grup di bawah Minimal Budget";
+                this.title = "Grup di bawah Minimal Budget";
                 return;
             }
             if (isSel) {
                 this.checked = true;
                 this.disabled = false;
-                this.title = "Lepas pilihan (bebaskan 1 slot)";
+                this.title = "Lepas pilihan";
                 return;
             }
-            if (canMore) {
-                this.checked = false;
-                this.disabled = false;
-                this.title = "Dapat dipilih (masih ada kuota di grup)";
-            } else {
-                this.checked = false;
-                this.disabled = true;
-                this.title = "Kuota grup penuh — sisa kapasitas < Minimal Budget";
-            }
+            this.checked = false;
+            this.disabled = !canMore;
+            this.title = canMore ? "Dapat dipilih" : "Kuota grup penuh — sisa < Minimal Budget";
         });
+
+        this.renderSelectedChips();
+        this.applyGroupFilters();
     },
 
-    saveCreate: function () {
+    saveCreate: async function () {
         var nama = ($("#fldNamaMemo").val() || "").trim();
         var desc = ($("#fldDescMemo").val() || "").trim();
         var budget = this.headerBudget();
@@ -402,11 +666,11 @@ var MemoDfPage = {
             return;
         }
         if (isNaN(budget) || budget <= 0) {
-            MappingSubdistStore.toast("warning", "Minimal Budget wajib (currency > 0)");
+            MappingSubdistStore.toast("warning", "Minimal Budget wajib");
             return;
         }
         if (!ids.length) {
-            MappingSubdistStore.toast("warning", "Pilih minimal 1 Subdist dari grup yang memenuhi");
+            MappingSubdistStore.toast("warning", "Pilih minimal 1 Subdist");
             return;
         }
 
@@ -415,17 +679,52 @@ var MemoDfPage = {
         for (var i = 0; i < ids.length; i++) {
             var g = self.findGroupForMember(ids[i]);
             if (!g || self.maxSlotsInGroup(g) < 1) {
-                MappingSubdistStore.toast("warning", "Ada Subdist dari grup di bawah Minimal Budget");
+                MappingSubdistStore.toast("warning", "Ada Subdist dari grup tidak eligible");
                 return;
             }
             byGroup[g.key] = (byGroup[g.key] || 0) + 1;
             if (byGroup[g.key] > self.maxSlotsInGroup(g)) {
-                MappingSubdistStore.toast("warning", "Kuota grup terlampaui: " + g.namaGroup);
+                MappingSubdistStore.toast("warning", "Kuota terlampaui: " + g.namaGroup);
                 return;
             }
         }
 
         var members = ids.map(function (id) { return MemoDfPage.selected[id]; });
+        var sampleList = members.slice(0, 5).map(function (m) {
+            return "• " + self.esc(m.kodeKmmd) + " — " + self.esc(m.namaKmmd);
+        }).join("<br>");
+        if (members.length > 5) {
+            sampleList += "<br>• … +" + (members.length - 5) + " lainnya";
+        }
+
+        await MappingSubdistStore.ensureSwal();
+        var confirmed = false;
+        if (typeof Swal !== "undefined") {
+            var result = await Swal.fire({
+                icon: "question",
+                title: "Simpan Memo DF?",
+                html:
+                    "<div class=\"text-start small\">" +
+                    "<p class=\"mb-1\"><strong>" + members.length + " memo</strong> akan dibuat.</p>" +
+                    "<p class=\"mb-1\">Nama: <strong>" + self.esc(nama) + "</strong></p>" +
+                    "<p class=\"mb-2\">Minimal: <strong>" + MemoDfStore.formatRp(budget) + "</strong></p>" +
+                    "<div class=\"mb-0\">" + sampleList + "</div>" +
+                    "</div>",
+                showCancelButton: true,
+                confirmButtonText: "Ya, Simpan",
+                cancelButtonText: "Batal",
+                customClass: {
+                    confirmButton: "btn btn-primary",
+                    cancelButton: "btn btn-outline-secondary"
+                },
+                buttonsStyling: false
+            });
+            confirmed = !!(result && result.isConfirmed);
+        } else {
+            confirmed = window.confirm("Simpan " + members.length + " memo?");
+        }
+        if (!confirmed) return;
+
         var created = MemoDfStore.createBatch(
             { namaMemo: nama, description: desc, budgetMemo: budget },
             members
@@ -433,7 +732,7 @@ var MemoDfPage = {
 
         MappingSubdistStore.toast(
             "success",
-            created.length + " memo dibuat (nomor " + created[0].nomorMemo +
+            created.length + " memo dibuat (" + created[0].nomorMemo +
                 (created.length > 1 ? " … " + created[created.length - 1].nomorMemo : "") + ")"
         );
         this.showPanel("index");

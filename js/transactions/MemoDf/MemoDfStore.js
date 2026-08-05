@@ -27,6 +27,12 @@ var MemoDfStore = {
         localStorage.setItem(this.STORAGE_KEY, JSON.stringify(list || []));
     },
 
+    /** Hapus semua memo + reset counter bulanan (prototype) */
+    clearAll: function () {
+        localStorage.removeItem(this.STORAGE_KEY);
+        localStorage.removeItem(this.COUNTER_KEY);
+    },
+
     getById: function (id) {
         return this.load().find(function (m) { return m.id === id; }) || null;
     },
