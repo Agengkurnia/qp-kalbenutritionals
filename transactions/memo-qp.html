@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="id" class="light-style layout-navbar-fixed layout-menu-fixed" dir="ltr" data-theme="theme-default"
+    data-assets-path="../assets/" data-template="vertical-menu-template">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memo QP (Setting QP) - Development Fund</title>
+    <style>
+        #tblMemoParents tbody tr { cursor: pointer; }
+        #tblMemoParents tbody tr.is-selected { background: rgba(105, 108, 255, 0.08); }
+        #fldBudgetMemo { font-variant-numeric: tabular-nums; font-weight: 600; }
+        #biBudgetAmount, #biBudgetAvailable, #biBudgetUsed { font-variant-numeric: tabular-nums; font-weight: 600; }
+        .memo-header-card.is-compact .memo-header-extra { display: none; }
+        .memo-create-workspace { padding-bottom: 5.5rem; }
+        .memo-selected-sticky {
+            position: fixed; left: 0; right: 0; bottom: 0; z-index: 1030;
+            background: #fff; border-top: 1px solid #d9dee3;
+            box-shadow: 0 -6px 24px rgba(67, 89, 113, 0.12);
+            padding: 0.75rem 1rem;
+        }
+        .memo-selected-sticky .memo-sticky-inner { max-width: 1320px; margin: 0 auto; }
+        @media (min-width: 1200px) {
+            .memo-selected-sticky .memo-sticky-inner { padding-left: 16.25rem; }
+        }
+        #btnSaveMemoSticky:disabled { opacity: 0.55; cursor: not-allowed; }
+        .memo-pill-bar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .memo-pill {
+            display: inline-flex; align-items: center; gap: 0.35rem;
+            background: #f5f5f9; border: 1px solid #e7e7e7; border-radius: 2rem;
+            padding: 0.25rem 0.75rem; font-size: 0.8rem; color: #566a7f;
+        }
+        .memo-pill strong { color: #384551; }
+        .memo-kpi-label { font-size: 0.75rem; color: #a1acb8; }
+        #modalPickParent .modal-body { max-height: min(65vh, 520px); overflow: auto; }
+    </style>
+</head>
+
+<body>
+    <div id="app-content">
+
+        <!-- INDEX -->
+        <div id="PanelIndex">
+            <div class="d-flex flex-wrap justify-content-between align-items-start mb-3 gap-2">
+                <div>
+                    <h4 class="fw-bold mb-1">
+                        <span class="text-muted fw-light">Transaction /</span> Memo QP
+                    </h4>
+                    <p class="text-muted mb-0 small">
+                        Alokasi Budget QP (glondongan BI) ke Parent Subdist — 1 Parent = 1 nomor
+                        <code>DF_CCD/01/{MM}/{YY}/{NNNN}</code>
+                    </p>
+                </div>
+                <button type="button" id="btnAddMemo" class="btn btn-success btn-sm">
+                    <i class="fas fa-plus me-1"></i>Add
+                </button>
+            </div>
+            <div class="card">
+                <div class="card-body">
+                    <div class="row g-2 align-items-end mb-3">
+                        <div class="col-md-5">
+                            <label class="form-label small mb-1" for="filterMemoSearch">Cari memo</label>
+                            <input type="search" id="filterMemoSearch" class="form-control form-control-sm"
+                                placeholder="No. memo / nama / kode KMMD / periode">
+                        </div>
+                        <div class="col-md-7 text-md-end">
+                            <small class="text-muted" id="memoCountLabel">0 memo</small>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table id="tblMemoQp" class="table table-bordered table-sm w-100" style="width:100%">
+                            <thead>
+                                <tr>
+                                    <th class="text-center">Lihat</th>
+                                    <th>No. Memo</th>
+                                    <th>Nama Memo</th>
+                                    <th>Periode</th>
+                                    <th>Budget Memo</th>
+                                    <th>Kode KMMD</th>
+                                    <th>Nama Parent</th>
+                                    <th>Group</th>
+                                    <th>Dibuat</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CREATE -->
+        <div id="PanelCreate" class="d-none">
+            <div class="memo-create-workspace">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                    <div>
+                        <h4 class="fw-bold mb-1">
+                            <span class="text-muted fw-light">Transaction / Memo QP /</span> Tambah
+                        </h4>
+                        <p class="text-muted mb-0 small">
+                            1 memo = 1 Parent. Budget tidak boleh melebihi sisa plafon compounding BI.
+                        </p>
+                    </div>
+                    <button type="button" id="btnCancelCreate" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-arrow-left me-1"></i>Kembali
+                    </button>
+                </div>
+
+                <div class="card memo-header-card mb-0" id="memoHeaderCard">
+                    <div class="card-header d-flex justify-content-between align-items-center py-2">
+                        <strong>Header Memo</strong>
+                        <button type="button" class="btn btn-icon btn-sm btn-text-secondary" id="btnToggleHeader"
+                            title="Ciutkan" aria-label="Ciutkan header">
+                            <i class="fas fa-chevron-up" id="iconToggleHeader"></i>
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3 memo-header-extra">
+                            <div class="col-md-4">
+                                <label class="form-label" for="fldNamaMemo">Nama Memo <span class="text-danger">*</span></label>
+                                <input type="text" id="fldNamaMemo" class="form-control form-control-sm" maxlength="200"
+                                    placeholder="Contoh: Memo QP Agustus 2026">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="fldPeriodeAwal">Periode Awal <span class="text-danger">*</span></label>
+                                <input type="date" id="fldPeriodeAwal" class="form-control form-control-sm" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="fldPeriodeAkhir">Periode Akhir <span class="text-danger">*</span></label>
+                                <input type="date" id="fldPeriodeAkhir" class="form-control form-control-sm" required>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label" for="fldDescMemo">Description</label>
+                                <input type="text" id="fldDescMemo" class="form-control form-control-sm"
+                                    placeholder="Opsional">
+                                <div class="form-text" id="periodeHint">Periode: tidak boleh backdate, hanya tahun berjalan.</div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label">Compounding BI (bruto)</label>
+                                <div class="form-control form-control-sm bg-light" id="biBudgetAmount">—</div>
+                                <div class="form-text" id="biBudgetLabel">—</div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Terpakai (memo)</label>
+                                <div class="form-control form-control-sm bg-light text-muted" id="biBudgetUsed">—</div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Sisa plafon</label>
+                                <div class="form-control form-control-sm bg-light text-success" id="biBudgetAvailable">—</div>
+                            </div>
+
+                            <div class="col-md-7">
+                                <label class="form-label">Parent Subdist <span class="text-danger">*</span></label>
+                                <div class="input-group input-group-sm">
+                                    <div class="form-control bg-light" id="selectedParentLabel">— belum dipilih —</div>
+                                    <button type="button" class="btn btn-outline-primary" id="btnOpenParentModal">
+                                        <i class="fas fa-search me-1"></i>Pilih
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" id="btnClearParent" disabled title="Clear">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label" for="fldBudgetMemo">Budget alokasi (Rp) <span class="text-danger">*</span></label>
+                                <input type="text" id="fldBudgetMemo" class="form-control form-control-sm text-end"
+                                    inputmode="numeric" placeholder="0" disabled>
+                                <div class="form-text" id="budgetHint">Pilih Parent dulu, lalu isi budget ≤ sisa plafon.</div>
+                            </div>
+                        </div>
+                        <div class="memo-pill-bar mt-3">
+                            <span class="memo-pill">Plafon <strong id="pillBiKode">—</strong></span>
+                            <span class="small text-muted ms-1" id="createHint">1 memo = 1 Parent Subdist.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="memo-selected-sticky d-none" id="memoSelectedSticky">
+                <div class="memo-sticky-inner d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div class="small text-muted" id="stickyHint">Lengkapi form, lalu simpan.</div>
+                    <div class="d-flex gap-2 flex-shrink-0">
+                        <button type="button" id="btnCancelCreateSticky" class="btn btn-outline-secondary btn-sm">Batal</button>
+                        <button type="button" id="btnSaveMemoSticky" class="btn btn-primary btn-sm" disabled>
+                            <i class="fas fa-save me-1"></i>Simpan
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <button type="button" id="btnSaveMemo" class="d-none"></button>
+        </div>
+
+        <!-- VIEW -->
+        <div id="PanelView" class="d-none">
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+                <div>
+                    <h4 class="fw-bold mb-1">
+                        <span class="text-muted fw-light">Transaction / Memo QP /</span> Detail
+                    </h4>
+                    <p class="text-muted mb-0"><code id="viewNomor">—</code></p>
+                </div>
+                <button type="button" id="btnBackFromView" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-arrow-left me-1"></i>Kembali
+                </button>
+            </div>
+            <div class="card">
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <div class="memo-kpi-label">Nama Memo</div>
+                            <div id="viewNama">—</div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="memo-kpi-label">Periode</div>
+                            <div id="viewPeriode">—</div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="memo-kpi-label">Budget QP (BI glondongan)</div>
+                            <div id="viewBiBudget">—</div>
+                        </div>
+                        <div class="col-12">
+                            <div class="memo-kpi-label">Description</div>
+                            <div id="viewDesc">—</div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="memo-kpi-label">Compounding BI (bruto saat buat)</div>
+                            <div id="viewBiAmount">—</div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="memo-kpi-label">Budget alokasi (memo)</div>
+                            <div class="fw-bold" id="viewBudgetMemo">—</div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="memo-kpi-label">Kode KMMD (Parent)</div>
+                            <div><code id="viewKode">—</code></div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="memo-kpi-label">Nama Parent</div>
+                            <div id="viewNamaKmmd">—</div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="memo-kpi-label">Group</div>
+                            <div id="viewGroup">—</div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="memo-kpi-label">ShipTo</div>
+                            <div id="viewShipTo">—</div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="memo-kpi-label">Dibuat</div>
+                            <div id="viewCreated">—</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal pilih Parent (harus di dalam #app-content agar ikut layout) -->
+        <div class="modal fade" id="modalPickParent" tabindex="-1" aria-labelledby="modalPickParentTitle" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header py-2">
+                        <h5 class="modal-title" id="modalPickParentTitle">Pilih Parent Subdist</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                            <input type="search" id="filterParentSearch" class="form-control form-control-sm"
+                                style="max-width:320px" placeholder="Cari kode / nama / group / region">
+                            <small class="text-muted" id="parentVisibleLabel">0 parent</small>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover align-middle mb-0" id="tblMemoParents">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="text-center" style="width:40px;"></th>
+                                        <th>Kode KMMD</th>
+                                        <th>Nama Parent</th>
+                                        <th>Group</th>
+                                        <th>Region</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tblMemoParentsBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="modal-footer py-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+                        <button type="button" class="btn btn-primary btn-sm" id="btnConfirmParent" disabled>
+                            Gunakan Parent
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/layout.js"></script>
+    <script src="../js/shared/MockBiLedger.js"></script>
+    <script src="../js/masters/MappingSubdist/seed-data.js"></script>
+    <script src="../js/masters/MappingSubdist/MappingSubdistStore.js"></script>
+    <script src="../js/masters/MappingSubdist/DfDataTable.js"></script>
+    <script src="../js/transactions/MemoQp/MemoQpStore.js"></script>
+    <script src="../js/transactions/MemoQp/MemoQp.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => { new Layout().init(); });
+        document.addEventListener('layoutReady', () => { MemoQpPage.init(); });
+    </script>
+</body>
+
+</html>

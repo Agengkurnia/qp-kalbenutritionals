@@ -236,8 +236,8 @@ class Layout {
                                 </a>
                             </li>
                             <li class="menu-item">
-                                <a href="${this.basePath}transactions/memo-df.html" class="menu-link">
-                                    <div data-i18n="Memo DF">Memo DF</div>
+                                <a href="${this.basePath}transactions/memo-qp.html" class="menu-link">
+                                    <div data-i18n="Memo QP">Memo QP</div>
                                 </a>
                             </li>
                         </ul>
